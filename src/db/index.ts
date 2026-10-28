@@ -197,53 +197,66 @@ class MemoryDatabase {
       }
 
       if (s.includes('FROM MERCHANTS')) {
-        if (s.includes('WHERE ID = ?')) {
-          return this.merchants.filter((m) => m.id === argsArray[0]);
-        }
-        if (s.includes('WHERE SLUG = ?')) {
-          return this.merchants.filter((m) => m.slug === argsArray[0]);
-        }
-        if (s.includes('WHERE EMAIL = ?')) {
-          return this.merchants.filter(
-            (m) => m.email.toLowerCase() === String(argsArray[0]).toLowerCase()
-          );
+        if (s.includes('WHERE')) {
+          if (s.includes('ID = ?')) {
+            return this.merchants.filter((m) => m.id === argsArray[0]);
+          }
+          if (s.includes('SLUG = ?')) {
+            return this.merchants.filter((m) => m.slug === argsArray[0]);
+          }
+          if (s.includes('EMAIL')) {
+            const targetEmail = String(argsArray[0] || '').trim().toLowerCase();
+            return this.merchants.filter(
+              (m) => m.email.toLowerCase() === targetEmail
+            );
+          }
+          return [];
         }
         return [...this.merchants];
       }
 
       if (s.includes('FROM LOYALTY_PROGRAMS')) {
-        if (s.includes('WHERE MERCHANT_ID = ?')) {
-          return this.loyalty_programs.filter((p) => p.merchant_id === argsArray[0]);
+        if (s.includes('WHERE')) {
+          if (s.includes('MERCHANT_ID')) {
+            return this.loyalty_programs.filter((p) => p.merchant_id === argsArray[0]);
+          }
+          return [];
         }
         return [...this.loyalty_programs];
       }
 
       if (s.includes('FROM CUSTOMERS')) {
-        if (s.includes('WHERE MERCHANT_ID = ? AND (CODE = ? OR ID = ?)')) {
-          const mid = argsArray[0];
-          const val = argsArray[1];
-          return this.customers.filter((c) => c.merchant_id === mid && (c.code === val || c.id === val));
-        }
-        if (s.includes('WHERE (CODE = ? OR ID = ?)')) {
-          const val = argsArray[0];
-          return this.customers.filter((c) => c.code === val || c.id === val);
-        }
-        if (s.includes('WHERE CODE = ?')) {
-          return this.customers.filter((c) => c.code === argsArray[0]);
-        }
-        if (s.includes('WHERE MERCHANT_ID = ?')) {
-          return this.customers.filter((c) => c.merchant_id === argsArray[0]);
+        if (s.includes('WHERE')) {
+          if (s.includes('MERCHANT_ID') && (s.includes('CODE') || s.includes('ID')) && argsArray.length >= 2) {
+            const mid = argsArray[0];
+            const val = argsArray[1];
+            return this.customers.filter((c) => c.merchant_id === mid && (c.code === val || c.id === val));
+          }
+          if (s.includes('CODE') && s.includes('ID')) {
+            const val = argsArray[0];
+            return this.customers.filter((c) => c.code === val || c.id === val);
+          }
+          if (s.includes('CODE')) {
+            return this.customers.filter((c) => c.code === argsArray[0]);
+          }
+          if (s.includes('MERCHANT_ID')) {
+            return this.customers.filter((c) => c.merchant_id === argsArray[0]);
+          }
+          return [];
         }
         return [...this.customers];
       }
 
       if (s.includes('FROM TRANSACTIONS')) {
-        if (s.includes('WHERE MERCHANT_ID = ?')) {
-          return this.transactions
-            .filter((t) => t.merchant_id === argsArray[0])
-            .sort((a, b) => b.created_at.localeCompare(a.created_at));
+        if (s.includes('WHERE')) {
+          if (s.includes('MERCHANT_ID')) {
+            return this.transactions
+              .filter((t) => t.merchant_id === argsArray[0])
+              .sort((a, b) => b.created_at.localeCompare(a.created_at));
+          }
+          return [];
         }
-        return [...this.transactions];
+        return [...this.transactions].sort((a, b) => b.created_at.localeCompare(a.created_at));
       }
 
       if (s.includes('FROM LEADS')) {
