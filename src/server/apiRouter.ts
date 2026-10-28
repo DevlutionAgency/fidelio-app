@@ -525,6 +525,111 @@ export async function handleApiRequest(
     }
 
     /* ----------------------------------------------------------------------
+       POST /api/auth/google : Connexion & Inscription via Google OAuth (Firebase)
+       ---------------------------------------------------------------------- */
+    if (method === 'POST' && pathname === '/api/auth/google') {
+      const { email, name, googleId, photoURL } = (body as any) || {};
+      if (!email || typeof email !== 'string') {
+        return {
+          status: 400,
+          data: { ok: false, error: 'Email requis pour la connexion Google.' },
+        };
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      let merchant = await dbQueryOne<MerchantRow>(
+        'SELECT * FROM merchants WHERE LOWER(email) = ?',
+        [cleanEmail]
+      );
+
+      if (!merchant) {
+        // Automatically create account for Google user
+        const merchantId = `com-${crypto.randomUUID().slice(0, 8)}`;
+        const baseName = name?.trim() || cleanEmail.split('@')[0] || 'Mon Commerce';
+        const baseSlug = slugify(baseName) || 'commerce';
+        const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 4)}`;
+        const now = new Date().toISOString();
+
+        await dbRun(
+          `INSERT INTO merchants (
+            id, name, slug, email, phone, password_hash, category, address,
+            card_bg_color, card_accent_color, card_cover_image, card_logo_image,
+            google_review_url, geo_notification_text, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            merchantId,
+            baseName,
+            slug,
+            cleanEmail,
+            '+213 5 00 00 00 00',
+            hashPassword(`google_${googleId || 'oauth'}_${Date.now()}`),
+            'Commerce',
+            'Alger',
+            '#1a1a1a',
+            '#f85b04',
+            '/landing/cartes/ongles.webp',
+            photoURL || '/brand/logo-mark.png',
+            'https://search.google.com/local/writereview?placeid=',
+            `Bienvenue chez ${baseName} ✨`,
+            now,
+          ]
+        );
+
+        await dbRun(
+          `INSERT INTO loyalty_programs (
+            id, merchant_id, name, mode, points_per_dzd, stamps_per_visit, stamps_target,
+            welcome_bonus, referral_bonus, google_review_bonus, rewards_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            `prog-${crypto.randomUUID().slice(0, 8)}`,
+            merchantId,
+            `Programme Fidélité ${baseName}`,
+            'tampons',
+            1,
+            1,
+            10,
+            0,
+            0,
+            0,
+            JSON.stringify([
+              {
+                id: `rew-${Date.now()}-1`,
+                title: 'Café ou Boisson offerte',
+                cost: 5,
+                description: 'Dès 5 tampons validés',
+                category: 'Boisson',
+                redemptions: 0,
+              },
+              {
+                id: `rew-${Date.now()}-2`,
+                title: 'Cadeau ou Remise 20%',
+                cost: 10,
+                description: 'Votre 10ème passage récompensé',
+                category: 'Cadeau',
+                redemptions: 0,
+              },
+            ]),
+            now,
+          ]
+        );
+
+        merchant = (await dbQueryOne<MerchantRow>(
+          'SELECT * FROM merchants WHERE id = ?',
+          [merchantId]
+        ))!;
+      }
+
+      const pair = (await getMerchantWithProgram(merchant.id))!;
+      return {
+        status: 200,
+        data: {
+          ok: true,
+          merchant: formatMerchantDTO(pair.merchant, pair.program),
+        },
+      };
+    }
+
+    /* ----------------------------------------------------------------------
        FLUX B : GET /api/merchants/:idOrSlug & PUT /api/merchants/:id/program
        ---------------------------------------------------------------------- */
     const merchantProgramMatch = pathname.match(/^\/api\/merchants\/([^/]+)\/program$/);

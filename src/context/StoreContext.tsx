@@ -1,4 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  signInWithGooglePopup,
+  syncMerchantToFirestore,
+  syncCustomerToFirestore,
+  syncTransactionToFirestore,
+  syncLeadToFirestore,
+} from '../lib/firebase.ts';
 
 export type ProgramMode = 'points' | 'tampons';
 
@@ -138,6 +145,7 @@ interface StoreContextType {
     email: string;
     password: string;
   }) => Promise<{ ok: boolean; error?: string; merchant?: CommerceSettings }>;
+  loginWithGoogle: () => Promise<{ ok: boolean; error?: string; merchant?: CommerceSettings }>;
   submitLead: (input: {
     source: 'demo' | 'simulateur' | 'demarrer';
     prenom: string;
@@ -418,6 +426,49 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setActiveId(logged.id);
       localStorage.setItem('fidelio_active_merchant_id', logged.id);
       await refreshState(logged.id);
+      void syncMerchantToFirestore(logged);
+      return { ok: true, merchant: logged };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Erreur réseau';
+      setApiError(errMsg);
+      return { ok: false, error: errMsg };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    try {
+      setLoading(true);
+      const googleRes = await signInWithGooglePopup();
+      if (!googleRes.ok || !googleRes.user) {
+        const errMsg = googleRes.error || 'Connexion Google annulée';
+        setApiError(errMsg);
+        return { ok: false, error: errMsg };
+      }
+
+      const { ok, data: json, error } = await safeFetchJson('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: googleRes.user.email,
+          name: googleRes.user.displayName,
+          googleId: googleRes.user.uid,
+          photoURL: googleRes.user.photoURL,
+        }),
+      });
+
+      if (!ok || !json?.merchant) {
+        const errMsg = error || json?.error || 'Erreur lors de la synchronisation du compte Google';
+        setApiError(errMsg);
+        return { ok: false, error: errMsg };
+      }
+
+      const logged: CommerceSettings = json.merchant;
+      setActiveId(logged.id);
+      localStorage.setItem('fidelio_active_merchant_id', logged.id);
+      await refreshState(logged.id);
+      void syncMerchantToFirestore(logged);
       return { ok: true, merchant: logged };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Erreur réseau';
@@ -451,6 +502,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { ok: false, error: error || json?.error || 'Données invalides' };
       }
       setLeads((prev) => [json.lead, ...prev]);
+      void syncLeadToFirestore(json.lead);
       return { ok: true, lead: json.lead as LeadRecord };
     } catch (err) {
       return {
@@ -511,6 +563,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       const created: Customer = json.customer;
       setCustomers((prev) => [created, ...prev.filter((x) => x.id !== created.id)]);
+      void syncCustomerToFirestore(created);
       return { ok: true, customer: created };
     } catch (err) {
       return {
@@ -558,8 +611,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? prev.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))
           : [updatedCustomer, ...prev];
       });
+      void syncCustomerToFirestore(updatedCustomer);
       if (createdTx) {
         setTransactions((prev) => [createdTx, ...prev]);
+        void syncTransactionToFirestore(createdTx);
       }
       if (type === 'redeem' && rewardTitle) {
         setRewards((prev) =>
@@ -644,6 +699,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateCommerce,
         registerMerchant,
         loginMerchant,
+        loginWithGoogle,
         submitLead,
         leads,
         rewards,
