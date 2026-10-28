@@ -1,0 +1,4 @@
+/* Exact original Fidelix compiled stylesheet is loaded via /original-styles.css in index.html.
+   Tailwind utilities remain available for custom dashboard components without overriding original classes. */
+@tailwind components;
+@tailwind utilities;

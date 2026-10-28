@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Local databases
+data/*.sqlite
+data/*.sqlite-journal
+data/*.sqlite-wal
+data/*.sqlite-shm
+
+# Build output
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Wrangler / Cloudflare
+.wrangler/
+.mf/
+
+# Temporary files & scraped artifacts
+*.png
+*.jpg
+docs-api-*.html
+dash-layout-chunk.js
+webpack-chunk.js

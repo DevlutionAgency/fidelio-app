@@ -1,0 +1,2924 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Html5Qrcode } from 'html5-qrcode';
+import {
+  Users,
+  QrCode,
+  Gift,
+  TrendingUp,
+  Search,
+  Plus,
+  Trash2,
+  Bell,
+  Mail,
+  Star,
+  ShieldCheck,
+  Check,
+  Copy,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  ExternalLink,
+  Trophy,
+  Lock,
+  MessageCircle,
+  Upload,
+  Send,
+  ScanLine,
+  Repeat,
+  Percent,
+  ChevronDown,
+  Save,
+  SlidersHorizontal,
+  Inbox,
+  Calendar,
+  UploadCloud,
+  Utensils,
+  Coffee,
+  Scissors,
+  Sparkles,
+  Shirt,
+  ShoppingBag,
+  Croissant,
+  BookOpen,
+  Store,
+  Heart,
+  Flame,
+  Leaf,
+  Gem,
+  Wrench,
+  Car,
+  Paintbrush,
+  ShoppingBasket,
+  Smartphone,
+  KeyRound,
+  Eye,
+  XCircle,
+  CreditCard,
+  Clock,
+  Cake,
+  Info,
+  Download,
+} from 'lucide-react';
+import { useStore } from '../context/StoreContext';
+import { StickerBadge, QrCodeMatrix } from '../components/BrandLogo';
+
+/* ============================================================================
+   1. ACCUEIL (/dashboard) — Exact replica of Screenshot 2
+   ============================================================================ */
+export const DashboardHome: React.FC = () => {
+  const { customers, rewards } = useStore();
+  const [moreDetailsOpen, setMoreDetailsOpen] = useState(false);
+
+  const totalVisits = customers.reduce((acc, c) => acc + c.visits, 0);
+  const returningCount = customers.filter((c) => c.visits >= 2).length;
+  const returningRate =
+    customers.length > 0 ? Math.round((returningCount / customers.length) * 100) : 0;
+  const totalRevenue = customers.reduce((acc, c) => acc + c.totalSpent, 0);
+
+  return (
+    <div className="space-y-4">
+      <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+        ACCUEIL
+      </h1>
+
+      {/* Banner: Créez votre première récompense */}
+      {rewards.length === 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-coral/35 bg-coral/[0.04] px-4 py-3.5">
+          <div>
+            <p className="text-sm font-bold text-ink">Créez votre première récompense</p>
+            <p className="text-xs text-ink/60">
+              Vos clients voient « Récompense fidélité » tant qu&apos;elle n&apos;existe pas.
+            </p>
+          </div>
+          <Link
+            to="/rewards"
+            className="inline-flex items-center justify-center rounded-xl bg-coral px-4 py-2 text-xs font-bold text-white shadow-sm shrink-0"
+          >
+            Créer
+          </Link>
+        </div>
+      )}
+
+      {/* 3 Quick Action Buttons Row */}
+      <div className="grid sm:grid-cols-3 gap-3">
+        <Link
+          to="/scan"
+          className="flex items-center gap-2.5 rounded-2xl bg-coral px-4 py-3.5 text-sm font-bold text-white shadow-hard-coral transition-transform active:scale-[0.99]"
+        >
+          <ScanLine className="h-4 w-4 shrink-0" />
+          Scanner une carte
+        </Link>
+        <Link
+          to="/notifications"
+          className="flex items-center gap-2.5 rounded-2xl border border-ink/[0.08] bg-white px-4 py-3.5 text-sm font-bold text-ink shadow-soft transition-colors hover:bg-ink/[0.02]"
+        >
+          <Send className="h-4 w-4 shrink-0 text-coral" />
+          Envoyer un message
+        </Link>
+        <Link
+          to="/qrcode"
+          className="flex items-center gap-2.5 rounded-2xl border border-ink/[0.08] bg-white px-4 py-3.5 text-sm font-bold text-ink shadow-soft transition-colors hover:bg-ink/[0.02]"
+        >
+          <QrCode className="h-4 w-4 shrink-0 text-coral" />
+          Mon QR code
+        </Link>
+      </div>
+
+      {/* 4 KPI Cards with colored top borders */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Card 1: CLIENTS */}
+        <div className="relative overflow-hidden rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-soft">
+          <div className="absolute inset-x-0 top-0 h-1 bg-ink" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink text-white">
+            <Users className="h-4 w-4" />
+          </div>
+          <p className="mt-3 font-impact text-3xl leading-none text-ink">{customers.length}</p>
+          <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/50">
+            CLIENTS
+          </p>
+          <p className="mt-0.5 text-[11px] text-ink/45">+{customers.length} ce mois</p>
+        </div>
+
+        {/* Card 2: VISITES */}
+        <div className="relative overflow-hidden rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-soft">
+          <div className="absolute inset-x-0 top-0 h-1 bg-violet-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white">
+            <TrendingUp className="h-4 w-4" />
+          </div>
+          <p className="mt-3 font-impact text-3xl leading-none text-ink">{totalVisits}</p>
+          <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/50">
+            VISITES
+          </p>
+          <p className="mt-0.5 text-[11px] text-ink/45">30 derniers jours</p>
+        </div>
+
+        {/* Card 3: REVIENNENT */}
+        <div className="relative overflow-hidden rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-soft">
+          <div className="absolute inset-x-0 top-0 h-1 bg-amber-500" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 text-white">
+            <Repeat className="h-4 w-4" />
+          </div>
+          <p className="mt-3 font-impact text-3xl leading-none text-ink">{returningRate} %</p>
+          <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/50">
+            REVIENNENT
+          </p>
+          <p className="mt-0.5 text-[11px] text-ink/45">au moins 2 visites</p>
+        </div>
+
+        {/* Card 4: CA (DZD) */}
+        <div className="relative overflow-hidden rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-soft">
+          <div className="absolute inset-x-0 top-0 h-1 bg-coral" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-coral text-white">
+            <Percent className="h-4 w-4" />
+          </div>
+          <p className="mt-3 font-impact text-3xl leading-none text-ink">
+            {totalRevenue.toLocaleString('fr-FR')}
+          </p>
+          <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/50">
+            CA (DZD)
+          </p>
+          <p className="mt-0.5 text-[11px] text-ink/45">30 j · total {totalRevenue}</p>
+        </div>
+      </div>
+
+      {/* Plaque NFC Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-coral/25 bg-coral/[0.03] px-4 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-coral/10 text-coral font-bold text-xs">
+            )))
+          </div>
+          <div>
+            <p className="text-xs font-bold text-ink">Plaque NFC — 150 DZD, une seule fois</p>
+            <p className="text-[11px] text-ink/60">
+              Vos clients approchent leur téléphone pour s&apos;inscrire. En attendant, votre{' '}
+              <Link to="/qrcode" className="underline hover:text-ink">
+                QR code
+              </Link>{' '}
+              fonctionne déjà.
+            </p>
+          </div>
+        </div>
+        <a
+          href="mailto:fidelioapp.support@gmail.com?subject=Commande%20Plaque%20NFC%20Fidelio"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-coral px-4 py-2.5 text-xs font-bold text-white shadow-sm shrink-0"
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Commander sur WhatsApp
+        </a>
+      </div>
+
+      {/* VISITES · 30 JOURS Chart Card */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-impact text-2xl leading-none text-ink">{totalVisits}</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-ink/45">
+              VISITES · 30 JOURS
+            </p>
+          </div>
+          <span className="text-[11px] text-ink/40">
+            {totalVisits === 0 ? 'Aucune visite sur la période' : `${totalVisits} visite(s)`}
+          </span>
+        </div>
+
+        <div className="mt-12 pt-6 border-b border-ink/[0.08] flex items-end justify-between gap-1 h-16">
+          {Array.from({ length: 30 }).map((_, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center">
+              <div className="w-full h-1 rounded-t bg-ink/[0.06]" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[10px] text-ink/40">
+          <span>Il y a 30 jours</span>
+          <span>Aujourd&apos;hui</span>
+        </div>
+      </div>
+
+      {/* Plus de détails Accordion */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
+        <button
+          type="button"
+          onClick={() => setMoreDetailsOpen((o) => !o)}
+          className="flex w-full items-center justify-between px-4 py-3.5 text-left text-xs font-bold text-ink"
+        >
+          <span>Plus de détails</span>
+          <ChevronDown
+            className={`h-4 w-4 text-ink/40 transition-transform ${
+              moreDetailsOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+        {moreDetailsOpen && (
+          <div className="border-t border-ink/[0.06] px-4 py-3.5 text-xs text-ink/60 grid sm:grid-cols-3 gap-3">
+            <div>
+              <p className="font-bold text-ink">Récompenses échangées</p>
+              <p className="mt-0.5">0 ce mois-ci</p>
+            </div>
+            <div>
+              <p className="font-bold text-ink">Parrainages validés</p>
+              <p className="mt-0.5">0 ami invité</p>
+            </div>
+            <div>
+              <p className="font-bold text-ink">Avis Google validés</p>
+              <p className="mt-0.5">0 bonus crédité</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================================
+   2. POS COUNTER SCANNER (/scan & /caisse)
+   ============================================================================ */
+export const ScanPage: React.FC = () => {
+  const {
+    commerce,
+    customers,
+    rewards,
+    scanCustomer,
+    offlineMode,
+    setOfflineMode,
+    syncOfflineQueue,
+    transactions,
+  } = useStore();
+  const [searchParams] = useSearchParams();
+
+  const [codeInput, setCodeInput] = useState(
+    () => searchParams.get('code') || customers[0]?.code || ''
+  );
+  const [amountDa, setAmountDa] = useState(1000);
+  const [selectedOperator, setSelectedOperator] = useState('Caisse Principale');
+  const [scanningApi, setScanningApi] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    ok: boolean;
+    message: string;
+    unlockedReward?: string | null;
+  } | null>(null);
+
+  // Camera QR Scanner state (html5-qrcode)
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const qrScannerRef = useRef<Html5Qrcode | null>(null);
+
+  useEffect(() => {
+    const paramCode = searchParams.get('code');
+    if (paramCode) {
+      setCodeInput(paramCode);
+    } else if (!codeInput && customers.length > 0) {
+      setCodeInput(customers[0].code);
+    }
+  }, [searchParams, customers, codeInput]);
+
+  useEffect(() => {
+    return () => {
+      if (qrScannerRef.current) {
+        qrScannerRef.current.stop().catch(() => undefined);
+      }
+    };
+  }, []);
+
+  const selectedCustomer = customers.find(
+    (c) => c.code.toUpperCase() === codeInput.trim().toUpperCase()
+  );
+
+  const pointsToCredit =
+    commerce.mode === 'tampons'
+      ? commerce.stampsPerVisit
+      : Math.max(1, Math.round((amountDa / 100) * commerce.pointsPerMad));
+
+  const executeScan = async (targetCode: string) => {
+    if (!targetCode.trim()) {
+      setFeedback({ ok: false, message: 'Veuillez saisir ou scanner un code client (ex: C-XXXXXX).' });
+      return;
+    }
+    setScanningApi(true);
+    setFeedback(null);
+    const res = await scanCustomer(
+      targetCode.trim(),
+      pointsToCredit,
+      'earn',
+      undefined,
+      selectedOperator,
+      amountDa
+    );
+    setScanningApi(false);
+    setFeedback({
+      ok: res.ok,
+      message: res.message,
+      unlockedReward: res.newlyUnlockedReward?.title ?? null,
+    });
+  };
+
+  const toggleCameraScanner = async () => {
+    setCameraError(null);
+    if (cameraActive && qrScannerRef.current) {
+      try {
+        await qrScannerRef.current.stop();
+      } catch {
+        // Ignore stop error
+      }
+      qrScannerRef.current = null;
+      setCameraActive(false);
+      return;
+    }
+
+    setCameraActive(true);
+    try {
+      const scanner = new Html5Qrcode('caisse-qr-reader');
+      qrScannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decodedText) => {
+          const cleanCode = decodedText.trim();
+          setCodeInput(cleanCode);
+          void executeScan(cleanCode);
+          scanner.stop().catch(() => undefined);
+          qrScannerRef.current = null;
+          setCameraActive(false);
+        },
+        () => {
+          // Frame without QR code
+        }
+      );
+    } catch (err) {
+      setCameraActive(false);
+      setCameraError(
+        err instanceof Error
+          ? `Caméra indisponible (${err.message}). Utilisez la saisie manuelle de secours ci-dessous.`
+          : 'Caméra indisponible sur cet appareil. Utilisez la saisie manuelle de secours ci-dessous.'
+      );
+    }
+  };
+
+  const handleEarn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeScan(codeInput);
+  };
+
+  const handleRedeem = async (rewardTitle: string, cost: number) => {
+    setScanningApi(true);
+    setFeedback(null);
+    const res = await scanCustomer(codeInput, cost, 'redeem', rewardTitle, selectedOperator);
+    setScanningApi(false);
+    setFeedback({ ok: res.ok, message: res.message });
+  };
+
+  const unsyncedCount = transactions.filter((t) => !t.synced).length;
+
+  return (
+    <div className="max-w-3xl space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+            SCANNER EN CAISSE
+          </h1>
+          <p className="text-xs text-ink/55">
+            Scannez le QR code du client avec la caméra ou saisissez son code manuellement.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOfflineMode(!offlineMode)}
+            className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold border transition-colors ${
+              offlineMode
+                ? 'bg-amber-500/15 border-amber-500/40 text-amber-800'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800'
+            }`}
+          >
+            {offlineMode ? (
+              <>
+                <WifiOff className="w-3.5 h-3.5" /> Hors-ligne ({unsyncedCount})
+              </>
+            ) : (
+              <>
+                <Wifi className="w-3.5 h-3.5" /> En ligne
+              </>
+            )}
+          </button>
+
+          {unsyncedCount > 0 && (
+            <button
+              type="button"
+              onClick={syncOfflineQueue}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-xs font-bold text-white"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Synchroniser
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Camera QR Code Reader Section (html5-qrcode) */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-ink">
+            <QrCode className="h-4 w-4 text-coral" />
+            <span>Lecteur QR Code Caméra</span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleCameraScanner}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
+              cameraActive
+                ? 'bg-red-600 text-white'
+                : 'bg-ink text-white hover:bg-coral'
+            }`}
+          >
+            <ScanLine className="h-3.5 w-3.5" />
+            {cameraActive ? 'Arrêter la caméra' : 'Activer la caméra QR Code'}
+          </button>
+        </div>
+
+        <div
+          id="caisse-qr-reader"
+          className={`overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02] ${
+            cameraActive ? 'min-h-[240px]' : 'hidden'
+          }`}
+        />
+
+        {cameraError && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold text-amber-900">
+            {cameraError}
+          </div>
+        )}
+      </div>
+
+      {/* Manual Fallback Input & Point/Stamp Credit Form */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-ink mb-1.5">
+            Saisie manuelle de secours — Code client (C-XXXXXX)
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value)}
+              placeholder="Ex: C-7K4M2P"
+              className="flex-1 rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 font-mono text-sm font-bold uppercase text-ink"
+            />
+            <select
+              value={selectedOperator}
+              onChange={(e) => setSelectedOperator(e.target.value)}
+              className="rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-xs font-bold text-ink"
+            >
+              <option value="Caisse Principale">Caisse Principale</option>
+            </select>
+          </div>
+
+          {customers.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-ink/50">Clients inscrits :</span>
+              {customers.slice(0, 6).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCodeInput(c.code)}
+                  className={`rounded-lg px-2 py-1 font-mono text-[11px] font-bold transition-colors ${
+                    codeInput.toUpperCase() === c.code.toUpperCase()
+                      ? 'bg-coral text-white'
+                      : 'bg-ink/[0.05] text-ink hover:bg-ink/10'
+                  }`}
+                >
+                  {c.code} ({c.name} · {c.points})
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleEarn} className="space-y-3 pt-2 border-t border-ink/[0.06]">
+          {commerce.mode === 'points' ? (
+            <div>
+              <label className="block text-xs font-bold text-ink mb-1">
+                Montant encaissé (DZD)
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={amountDa}
+                onChange={(e) => setAmountDa(Number(e.target.value))}
+                className="w-full rounded-xl border border-ink/15 px-3.5 py-2.5 text-sm font-bold text-ink"
+              />
+              <p className="mt-1 text-[11px] text-ink/50">
+                Barème : {commerce.pointsPerMad} point(s) pour 100 DZD dépensés.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-ink/60">
+              Mode tampons : <strong>+{commerce.stampsPerVisit} tampon(s)</strong> par passage.
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={scanningApi}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-coral py-3 text-sm font-bold text-white shadow-hard-coral disabled:opacity-50"
+          >
+            <ScanLine className="w-4 h-4" />
+            {scanningApi
+              ? 'Validation en base de données...'
+              : `Créditer +${pointsToCredit} ${commerce.mode === 'tampons' ? 'tampon(s)' : 'points'}`}
+          </button>
+        </form>
+
+        {feedback && (
+          <div
+            className={`rounded-xl p-3.5 text-xs font-bold ${
+              feedback.ok
+                ? 'bg-emerald-500/15 text-emerald-800 border border-emerald-500/30'
+                : 'bg-red-500/15 text-red-800 border border-red-500/30'
+            }`}
+          >
+            <p>{feedback.message}</p>
+            {feedback.unlockedReward && (
+              <p className="mt-1 text-emerald-900">
+                🎁 Palier atteint : Le client a débloqué « {feedback.unlockedReward} » !
+              </p>
+            )}
+          </div>
+        )}
+
+        {selectedCustomer && rewards.length > 0 && (
+          <div className="pt-3 border-t border-ink/[0.06] space-y-2">
+            <p className="text-xs font-bold text-ink">
+              Récompenses pour {selectedCustomer.name} ({selectedCustomer.code} — Solde :{' '}
+              {selectedCustomer.points})
+            </p>
+            {rewards.map((rew) => {
+              const canRedeem = selectedCustomer.points >= rew.cost;
+              return (
+                <div
+                  key={rew.id}
+                  className={`flex items-center justify-between rounded-xl border p-2.5 ${
+                    canRedeem
+                      ? 'border-emerald-500/40 bg-emerald-500/[0.05]'
+                      : 'border-ink/10 bg-white'
+                  }`}
+                >
+                  <div>
+                    <span className="text-xs font-bold text-ink">
+                      {rew.title} ({rew.cost} {commerce.mode === 'tampons' ? 'tampons' : 'pts'})
+                    </span>
+                    {canRedeem && (
+                      <span className="ml-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                        Débloquée
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!canRedeem || scanningApi}
+                    onClick={() => handleRedeem(rew.title, rew.cost)}
+                    className="rounded-lg bg-ink px-3 py-1.5 text-xs font-bold text-white disabled:opacity-30"
+                  >
+                    Utiliser la récompense
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Real-time Transactions History from SQLite */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-ink">
+            <Clock className="h-4 w-4 text-coral" />
+            <span>Historique des transactions en caisse ({transactions.length})</span>
+          </div>
+        </div>
+
+        {transactions.length === 0 ? (
+          <p className="text-xs text-ink/45 py-4 text-center">
+            Aucune transaction enregistrée pour le moment.
+          </p>
+        ) : (
+          <div className="divide-y divide-ink/[0.06]">
+            {transactions.slice(0, 15).map((tx) => (
+              <div
+                key={tx.id}
+                className="py-2.5 flex items-center justify-between text-xs gap-2"
+              >
+                <div>
+                  <p className="font-bold text-ink">
+                    {tx.customerName}{' '}
+                    <span className="font-mono text-[11px] text-ink/55">({tx.customerCode})</span>
+                  </p>
+                  <p className="text-[11px] text-ink/45">
+                    {tx.operator} · {tx.timestamp}
+                    {tx.unlockedReward ? ` · 🎉 ${tx.unlockedReward}` : ''}
+                  </p>
+                </div>
+                <span
+                  className={`font-mono font-bold px-2.5 py-1 rounded-lg ${
+                    tx.type === 'earn'
+                      ? 'bg-emerald-500/10 text-emerald-700'
+                      : 'bg-coral/10 text-coral'
+                  }`}
+                >
+                  {tx.delta > 0 ? `+${tx.delta}` : tx.delta}{' '}
+                  {commerce.mode === 'tampons' ? 'tampon(s)' : 'pts'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================================
+   3. CLIENTS (/customers & /clients-import) — Exact replica of Screenshot 3
+   ============================================================================ */
+export const CustomersPage: React.FC = () => {
+  const { customers, addCustomer, commerce } = useStore();
+  const location = useLocation();
+  const isImportTab = location.pathname.startsWith('/clients-import');
+
+  const [csvText, setCsvText] = useState('');
+  const [importDone, setImportDone] = useState<string | null>(null);
+
+  const handleBulkImport = (e: React.FormEvent) => {
+    e.preventDefault();
+    const lines = csvText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    let count = 0;
+    for (const line of lines) {
+      const [n, p, em] = line.split(/[;,]/).map((s) => s?.trim());
+      if (n) {
+        addCustomer({
+          name: n,
+          phone: p || '+213 5 50 00 00 00',
+          email: em || 'client@fidelio.dz',
+          walletAdded: 'apple',
+        });
+        count++;
+      }
+    }
+    setImportDone(`${count} client(s) importé(s) avec succès.`);
+  };
+
+  if (isImportTab) {
+    return (
+      <div className="max-w-xl space-y-4">
+        <p className="text-xs text-ink/60">
+          Importez vos clients existants au format CSV pour leur attribuer une carte Fidelio.
+        </p>
+        <form
+          onSubmit={handleBulkImport}
+          className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4"
+        >
+          <div className="flex items-center gap-2 text-sm font-bold text-ink">
+            <Upload className="h-4 w-4 text-coral" />
+            <span>Importer un fichier CSV</span>
+          </div>
+          <textarea
+            rows={4}
+            value={csvText}
+            onChange={(e) => setCsvText(e.target.value)}
+            placeholder="Nom;Téléphone;Email"
+            className="w-full rounded-xl border border-ink/15 p-3 font-mono text-xs text-ink"
+          />
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-coral px-4 py-2.5 text-xs font-bold text-white shadow-hard-coral"
+          >
+            <Upload className="h-3.5 w-3.5" /> Importer pour {commerce.name}
+          </button>
+          {importDone && (
+            <p className="text-xs font-semibold text-emerald-700">{importDone}</p>
+          )}
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-ink/55">
+        {customers.length} {customers.length > 1 ? 'clients inscrits' : 'client inscrit'}
+      </p>
+
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft">
+        <div className="flex items-center gap-2 text-xs font-bold text-ink">
+          <Users className="h-4 w-4 text-ink/60" />
+          <span>Liste des membres</span>
+        </div>
+
+        {customers.length === 0 ? (
+          <div className="py-14 flex flex-col items-center justify-center text-center">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+              <Search className="h-5 w-5" />
+            </div>
+            <p className="mt-3 text-xs font-bold text-ink">Aucun client pour le moment</p>
+            <p className="mt-0.5 text-[11px] text-ink/45">
+              Partagez votre QR code pour commencer
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 divide-y divide-ink/[0.06]">
+            {customers.map((c) => (
+              <div key={c.id} className="py-3 flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-mono font-bold text-ink">{c.code}</p>
+                  <p className="text-ink/50">Membre depuis {c.memberSince}</p>
+                </div>
+                <span className="font-bold text-coral">
+                  {c.points} {commerce.mode === 'tampons' ? 'tampons' : 'pts'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================================
+   4. PROGRAMME (/rewards & /program) — Exact replica of Screenshots 4 & 5
+   ============================================================================ */
+export const RewardsPage: React.FC = () => {
+  const { commerce, updateCommerce, rewards, addReward, deleteReward } = useStore();
+  const location = useLocation();
+  const isReglesTab = location.pathname.startsWith('/program');
+
+  const [addingReward, setAddingReward] = useState(false);
+  const [title, setTitle] = useState('');
+  const [cost, setCost] = useState(10);
+  const [programName, setProgramName] = useState(
+    commerce.programName || `Programme ${commerce.name}`
+  );
+  const [programMode, setProgramMode] = useState<'tampons' | 'points'>(commerce.mode);
+  const [currency, setCurrency] = useState<'DZD' | 'EUR'>('DZD');
+  const [stampsPerCard, setStampsPerCard] = useState(commerce.stampsTarget || 10);
+  const [pointsPerDzd, setPointsPerDzd] = useState(commerce.pointsPerMad || 1);
+  const [referralStamps, setReferralStamps] = useState(commerce.referralBonus || 0);
+  const [googleBonusEnabled, setGoogleBonusEnabled] = useState(Boolean(commerce.googleReviewBonus));
+  const [googleBonusStamps, setGoogleBonusStamps] = useState(commerce.googleReviewBonus || 0);
+  const [googlePlaceUrl, setGooglePlaceUrl] = useState(
+    commerce.googleReviewUrl || 'https://search.google.com/local/writereview?placeid='
+  );
+  const [saving, setSaving] = useState(false);
+  const [savedToast, setSavedToast] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSavedToast(false);
+    const ok = await updateCommerce({
+      programName,
+      mode: programMode,
+      stampsTarget: stampsPerCard,
+      pointsPerMad: pointsPerDzd,
+      pointsPerDzd,
+      referralBonus: referralStamps,
+      googleReviewBonus: googleBonusEnabled ? googleBonusStamps : 0,
+      googleReviewUrl: googlePlaceUrl,
+    });
+    setSaving(false);
+    if (ok) {
+      setSavedToast(true);
+    }
+  };
+
+  if (isReglesTab) {
+    return (
+      <div className="max-w-md space-y-4">
+        {/* Card 1: Configuration */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-ink">
+            <SlidersHorizontal className="h-4 w-4 text-coral" />
+            <span>Configuration</span>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1">
+              Nom du programme de fidélité
+            </label>
+            <input
+              type="text"
+              value={programName}
+              onChange={(e) => {
+                setProgramName(e.target.value);
+                setSavedToast(false);
+              }}
+              placeholder="Programme Fidélité"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1.5">
+              Mode de fidélité (Tampons ou Points)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setProgramMode('tampons');
+                  setSavedToast(false);
+                }}
+                className={`rounded-xl border px-3.5 py-2.5 text-left text-xs font-bold transition-colors ${
+                  programMode === 'tampons'
+                    ? 'border-coral bg-coral/[0.06] text-coral'
+                    : 'border-ink/10 bg-white text-ink/70'
+                }`}
+              >
+                Tampons (au passage)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProgramMode('points');
+                  setSavedToast(false);
+                }}
+                className={`rounded-xl border px-3.5 py-2.5 text-left text-xs font-bold transition-colors ${
+                  programMode === 'points'
+                    ? 'border-coral bg-coral/[0.06] text-coral'
+                    : 'border-ink/10 bg-white text-ink/70'
+                }`}
+              >
+                Points (au montant DZD)
+              </button>
+            </div>
+          </div>
+
+          {programMode === 'points' && (
+            <div>
+              <label className="block text-[11px] font-bold text-ink mb-1">
+                Points gagnés par tranche de 100 DZD
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={pointsPerDzd}
+                onChange={(e) => setPointsPerDzd(Math.max(1, Number(e.target.value)))}
+                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1.5">
+              Devise de vos montants
+            </label>
+            <div className="inline-flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrency('DZD')}
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors ${
+                  currency === 'DZD'
+                    ? 'border-coral bg-coral/[0.06] text-coral'
+                    : 'border-ink/10 bg-white text-ink/60'
+                }`}
+              >
+                Dinar (DZD)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrency('EUR')}
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors ${
+                  currency === 'EUR'
+                    ? 'border-coral bg-coral/[0.06] text-coral'
+                    : 'border-ink/10 bg-white text-ink/60'
+                }`}
+              >
+                Euro (€)
+              </button>
+            </div>
+            <p className="mt-1.5 text-[10px] text-ink/45">
+              Celle des montants saisis en caisse, du barème et du chiffre d&apos;affaires affiché.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1.5">
+              Nombre de tampons par carte
+            </label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[5, 6, 8, 10, 12, 15].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setStampsPerCard(n)}
+                  className={`h-9 w-9 rounded-xl font-impact text-sm transition-all ${
+                    stampsPerCard === n
+                      ? 'bg-coral text-white shadow-hard-coral'
+                      : 'bg-ink/[0.04] text-ink hover:bg-ink/[0.08]'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={stampsPerCard}
+                onChange={(e) => setStampsPerCard(Math.max(1, Number(e.target.value)))}
+                className="h-9 w-14 rounded-xl border border-ink/10 bg-white px-2 text-center text-xs font-bold text-ink"
+              />
+            </div>
+
+            {/* Dark Stamp Preview Box */}
+            <div className="mt-3 rounded-2xl bg-[#181818] p-4 text-white">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/50">
+                APERÇU — {stampsPerCard} TAMPONS
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {Array.from({ length: stampsPerCard }).map((_, idx) => {
+                  const filled = idx < Math.min(7, stampsPerCard - 1);
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
+                        filled
+                          ? 'bg-coral text-white shadow-sm'
+                          : 'border border-white/20 text-white/30'
+                      }`}
+                    >
+                      {filled ? '✓' : ''}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[10px] text-white/55">
+                {Math.min(7, stampsPerCard - 1)}/{stampsPerCard} tampons collectés → récompense
+                proche !
+              </p>
+            </div>
+            <p className="mt-1.5 text-[10px] text-ink/45">
+              L&apos;icône dessinée dans les tampons se choisit dans Apparence, à côté de
+              l&apos;aperçu de la carte.
+            </p>
+          </div>
+        </div>
+
+        {/* Card 2: Parrainage */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-ink">
+            <Gift className="h-4 w-4 text-coral" />
+            <span>Parrainage</span>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1">
+              Bonus de parrainage (tampons)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={referralStamps}
+              onChange={(e) => setReferralStamps(Number(e.target.value))}
+              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
+            />
+            <p className="mt-1.5 text-[10px] leading-relaxed text-ink/50">
+              Quand un client invite un ami, <strong className="text-ink">les deux</strong>{' '}
+              reçoivent ce bonus au <strong className="text-ink">premier passage en caisse</strong>{' '}
+              de l&apos;ami — pas à son inscription. Mettez 0 pour ne pas offrir de bonus.
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Bonus avis Google */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-ink">
+            <Star className="h-4 w-4 text-coral" />
+            <span>Bonus avis Google</span>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs font-medium text-ink cursor-pointer">
+            <input
+              type="checkbox"
+              checked={googleBonusEnabled}
+              onChange={(e) => setGoogleBonusEnabled(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-ink/25 text-coral"
+            />
+            <span>Activer le bonus avis Google</span>
+          </label>
+
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1">
+              Bonus accordé (tampons)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={googleBonusStamps}
+              onChange={(e) => setGoogleBonusStamps(Number(e.target.value))}
+              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1">
+              Lien de votre page d&apos;avis Google
+            </label>
+            <input
+              type="text"
+              value={googlePlaceUrl}
+              onChange={(e) => setGooglePlaceUrl(e.target.value)}
+              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+            />
+            <p className="mt-1 text-[10px] text-ink/45">
+              Collez votre <strong className="text-ink">Place ID</strong> à la fin du lien, après{' '}
+              <code>placeid=</code>.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <a
+                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg border border-ink/10 bg-white px-2.5 py-1 text-[10px] font-bold text-ink"
+              >
+                Trouver mon Place ID <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+              <a
+                href="mailto:fidelioapp.support@gmail.com?subject=Aide%20Place%20ID%20Google"
+                className="inline-flex items-center gap-1 rounded-lg bg-ink px-2.5 py-1 text-[10px] font-bold text-white"
+              >
+                Demander sur WhatsApp
+              </a>
+            </div>
+            <p className="mt-2 text-[10px] leading-relaxed text-ink/50">
+              Le client laisse un avis, puis demande son bonus depuis sa carte.{' '}
+              <strong className="text-ink">Vous validez chaque demande</strong> depuis l&apos;onglet{' '}
+              <Link to="/reviews" className="underline text-ink">
+                Avis Google
+              </Link>{' '}
+              — le bonus n&apos;est crédité qu&apos;
+              <strong className="text-ink">une seule fois par client</strong>.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={saving}
+          onClick={handleSave}
+          className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral disabled:opacity-50"
+        >
+          <Save className="h-3.5 w-3.5" />
+          {saving ? 'Sauvegarde en base...' : savedToast ? 'Enregistré ✓' : 'Enregistrer'}
+        </button>
+      </div>
+    );
+  }
+
+  // Tab 1: Récompenses (/rewards) — Exact replica of Screenshot 4
+  return (
+    <div className="max-w-lg space-y-4">
+      <p className="text-xs text-ink/55">
+        Vos clients choisissent leur récompense avec leurs tampons.
+      </p>
+
+      {/* Card 1: Vos récompenses */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-ink">
+          <Gift className="h-4 w-4 text-ink/70" />
+          <span>Vos récompenses</span>
+        </div>
+
+        {rewards.length === 0 ? (
+          <p className="text-xs text-ink/50">
+            Aucune récompense pour l&apos;instant. Ajoutez-en une pour que vos clients sachent ce
+            qu&apos;ils peuvent gagner.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {rewards.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between rounded-xl border border-ink/10 px-3.5 py-2.5"
+              >
+                <div>
+                  <p className="text-xs font-bold text-ink">{r.title}</p>
+                  <p className="text-[11px] text-ink/50">{r.cost} tampons</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deleteReward(r.id)}
+                  className="text-ink/40 hover:text-red-600"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {addingReward ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!title.trim()) return;
+              addReward({
+                title,
+                cost,
+                description: 'Récompense fidélité',
+                category: 'Fidélité',
+              });
+              setTitle('');
+              setAddingReward(false);
+            }}
+            className="space-y-2.5 pt-2 border-t border-ink/[0.06]"
+          >
+            <input
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex : Dessert ou Café offert"
+              className="w-full rounded-xl border border-ink/15 px-3 py-2 text-xs"
+            />
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                value={cost}
+                onChange={(e) => setCost(Number(e.target.value))}
+                className="w-24 rounded-xl border border-ink/15 px-3 py-2 text-xs font-bold"
+              />
+              <span className="text-xs text-ink/60">tampons requis</span>
+              <button
+                type="submit"
+                className="ml-auto rounded-xl bg-ink px-3.5 py-2 text-xs font-bold text-white"
+              >
+                Ajouter
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingReward(true)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-ink/10 bg-white py-2.5 text-xs font-bold text-ink transition-colors hover:bg-ink/[0.02]"
+          >
+            <Plus className="h-3.5 w-3.5" /> Ajouter une récompense
+          </button>
+        )}
+      </div>
+
+      {/* Card 2: Ce que verra votre client */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+        <p className="text-xs font-bold text-ink">Ce que verra votre client</p>
+
+        <div className="mx-auto max-w-xs rounded-2xl bg-[#181818] p-5 text-white shadow-md">
+          <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-white/60">
+            <Gift className="h-3 w-3" />
+            <span>VOS RÉCOMPENSES</span>
+          </div>
+          <p className="mt-1 font-impact text-xl uppercase tracking-tight text-white">
+            CE QUE VOUS POUVEZ GAGNER
+          </p>
+          {rewards.length === 0 ? (
+            <p className="mt-1 text-[11px] text-white/60">Vos récompenses apparaîtront ici.</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-xs text-white/85">
+              {rewards.map((r) => (
+                <li key={r.id} className="flex justify-between">
+                  <span>{r.title}</span>
+                  <span className="font-bold text-coral">{r.cost} t.</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <p className="text-center text-[10px] text-ink/40">
+          Aperçu indicatif : chaque client voit sa propre progression.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSave}
+        className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral"
+      >
+        <Save className="h-3.5 w-3.5" />
+        {savedToast ? 'Récompenses enregistrées ✓' : 'Enregistrer les récompenses'}
+      </button>
+    </div>
+  );
+};
+
+/* ============================================================================
+   5. MESSAGES (/notifications, /automations, /campaigns) — Screenshot 1
+   ============================================================================ */
+export const NotificationsPage: React.FC = () => {
+  const { campaigns, sendCampaign, customers } = useStore();
+  const location = useLocation();
+  const isAutoTab = location.pathname.startsWith('/automations');
+  const isEmailTab = location.pathname.startsWith('/campaigns');
+
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [optLink, setOptLink] = useState('');
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() && !message.trim()) return;
+    sendCampaign({
+      title: title || message,
+      channel: isEmailTab ? 'email' : 'push',
+      segment: 'Tous les clients',
+      recipients: customers.length,
+    });
+    setTitle('');
+    setMessage('');
+    setOptLink('');
+  };
+
+  if (isAutoTab) {
+    return (
+      <div className="max-w-lg space-y-4">
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+          <p className="text-xs font-bold text-ink">Relances automatiques</p>
+          <p className="text-xs text-ink/55">
+            Vos clients reçoivent automatiquement un message de bienvenue, un rappel lorsqu&apos;ils
+            sont proches d&apos;une récompense et un cadeau le jour de leur anniversaire.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-md space-y-4">
+      <form
+        onSubmit={handleSend}
+        className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3.5"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-ink">
+            {isEmailTab ? (
+              <Mail className="h-4 w-4 text-coral" />
+            ) : (
+              <Bell className="h-4 w-4 text-coral" />
+            )}
+            <span>{isEmailTab ? 'Nouvel email' : 'Nouvelle notification'}</span>
+          </div>
+          <span className="rounded-full bg-coral/10 px-2.5 py-0.5 text-[10px] font-bold text-coral">
+            {campaigns.length}/3 aujourd&apos;hui
+          </span>
+        </div>
+
+        <p className="text-[11px] text-ink/50">
+          Jusqu&apos;à 3 notifications par jour. Au-delà, les clients se lassent et suppriment leur
+          carte.
+        </p>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[11px] font-bold text-ink">Titre</label>
+            <span className="text-[10px] text-ink/40">{title.length}/50</span>
+          </div>
+          <input
+            type="text"
+            maxLength={50}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ex : Offre spéciale ce weekend !"
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[11px] font-bold text-ink">Message</label>
+            <span className="text-[10px] text-ink/40">{message.length}/150</span>
+          </div>
+          <textarea
+            rows={3}
+            maxLength={150}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Profitez de -20% sur votre prochaine visite. Valable jusqu'au 30 juin."
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-ink mb-1">
+            Lien optionnel <span className="font-normal text-ink/45">(bouton dans la notif)</span>
+          </label>
+          <input
+            type="url"
+            value={optLink}
+            onChange={(e) => setOptLink(e.target.value)}
+            placeholder="https://votre-site.dz/offre"
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+          />
+        </div>
+
+        <div className="flex items-start gap-2 rounded-xl border border-ink/[0.06] bg-ink/[0.02] p-3 text-[10px] leading-relaxed text-ink/55">
+          <Info className="h-3.5 w-3.5 shrink-0 text-ink/40 mt-0.5" />
+          <span>
+            Les notifications sont modérées automatiquement. Tout contenu inapproprié (injures,
+            contenu sexuel, texte non professionnel) sera bloqué et non publié.
+          </span>
+        </div>
+
+        <button
+          type="submit"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-coral py-3 text-xs font-bold text-white shadow-hard-coral"
+        >
+          <Send className="h-3.5 w-3.5" />
+          Envoyer la notification
+        </button>
+      </form>
+
+      {/* Historique des notifications */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft">
+        <p className="text-xs font-bold text-ink">Historique des notifications</p>
+        {campaigns.length === 0 ? (
+          <div className="py-8 flex flex-col items-center justify-center text-center">
+            <Bell className="h-5 w-5 text-ink/25" />
+            <p className="mt-2 text-[11px] text-ink/45">Aucune notification envoyée</p>
+          </div>
+        ) : (
+          <div className="mt-3 divide-y divide-ink/[0.06]">
+            {campaigns.map((c) => (
+              <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
+                <span className="font-semibold text-ink">{c.title}</span>
+                <span className="text-[10px] text-ink/45">{c.sentAt}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================================
+   6. APPARENCE (/branding) — Exact replica of Screenshot 8
+   ============================================================================ */
+export const BrandingPage: React.FC = () => {
+  const { commerce, updateCommerce } = useStore();
+  const [estType, setEstType] = useState('Restaurant');
+  const [topMode, setTopMode] = useState<'tampons' | 'photo'>('tampons');
+  const [stampsCount, setStampsCount] = useState(10);
+  const [stampIconIdx, setStampIconIdx] = useState(0);
+  const [saved, setSaved] = useState(false);
+
+  const ESTABLISHMENT_TYPES = [
+    { label: 'Restaurant', icon: Utensils },
+    { label: 'Café', icon: Coffee },
+    { label: 'Coiffure', icon: Scissors },
+    { label: 'Barbershop', icon: Scissors },
+    { label: 'Pressing', icon: Shirt },
+    { label: 'Retoucherie', icon: Wrench },
+    { label: 'Boucherie', icon: Utensils },
+    { label: 'Pâtisserie', icon: Croissant },
+    { label: 'Librairie', icon: BookOpen },
+    { label: 'Autre', icon: Store },
+  ];
+
+  const SWATCH_COLORS = [
+    '#1a1a1a',
+    '#f85b04',
+    '#1e3a8a',
+    '#7c3aed',
+    '#be123c',
+    '#047857',
+    '#9a3412',
+    '#831843',
+  ];
+
+  const STAMP_ICONS = [
+    Check,
+    Heart,
+    Star,
+    Coffee,
+    Utensils,
+    Croissant,
+    Gift,
+    Scissors,
+    Sparkles,
+    Trophy,
+    ThumbsUpIcon,
+    Flame,
+    Leaf,
+    ShoppingBag,
+    Shirt,
+    Gem,
+    Wrench,
+    Car,
+    Paintbrush,
+    ShoppingBasket,
+    Smartphone,
+  ];
+
+  return (
+    <div className="space-y-5 pb-16">
+      <div>
+        <div className="flex items-center gap-2.5">
+          <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+            APPARENCE
+          </h1>
+          <StickerBadge rotate={-3} tone="coral" className="text-xs px-2.5 py-1">
+            Votre DA
+          </StickerBadge>
+        </div>
+        <p className="mt-1 text-xs text-ink/55">
+          Tout ce que vous changez ici apparaît aussitôt sur la carte, telle que vos clients la
+          verront dans leur téléphone.
+        </p>
+      </div>
+
+      <div className="grid lg:grid-cols-[240px_1fr] gap-8 items-start">
+        {/* Left: Live Black Apple Wallet Stamp Pass Preview */}
+        <div>
+          <div
+            style={{ backgroundColor: commerce.cardBgColor || '#1a1a1a' }}
+            className="w-[230px] rounded-[22px] p-4 text-white shadow-xl ring-1 ring-black/15 select-none"
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[10px] font-bold">
+                {commerce.name.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-xs font-bold truncate">{commerce.name}</span>
+            </div>
+
+            {/* Stamp circles grid */}
+            <div className="my-5 flex flex-wrap justify-center gap-2 px-2">
+              {Array.from({ length: stampsCount }).map((_, idx) => {
+                const filled = idx < 4;
+                return (
+                  <div
+                    key={idx}
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
+                      filled
+                        ? 'bg-white text-ink font-bold'
+                        : 'border border-white/20 text-white/30'
+                    }`}
+                  >
+                    {filled ? '✓' : ''}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[8px] uppercase tracking-wider text-white/60">
+              <div>
+                <p>PROCHAINE RÉCOMPENSE</p>
+                <p className="mt-0.5 text-[10px] font-bold normal-case text-white truncate">
+                  Récompense fidélité
+                </p>
+              </div>
+              <div className="text-right">
+                <p>CODE CLIENT</p>
+                <p className="mt-0.5 text-[10px] font-mono font-bold text-white">C-4F2A91</p>
+              </div>
+            </div>
+
+            <div className="mt-2.5 grid grid-cols-2 gap-2 text-[8px] uppercase tracking-wider text-white/60">
+              <div>
+                <p>TAMPONS</p>
+                <p className="mt-0.5 text-[11px] font-bold text-white">4 / {stampsCount}</p>
+              </div>
+              <div className="text-right">
+                <p>DEPUIS</p>
+                <p className="mt-0.5 text-[10px] font-semibold normal-case text-white">
+                  octobre 2026
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-center">
+              <div className="rounded-xl bg-white p-2">
+                <QrCodeMatrix code="C-4F2A91" size={72} />
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-2.5 max-w-[230px] text-center text-[10px] leading-relaxed text-ink/45">
+            Aperçu réel du pass Apple Wallet. La carte Google et la carte web reprennent les mêmes
+            couleurs.
+          </p>
+        </div>
+
+        {/* Right: 4 Numbered Sections */}
+        <div className="space-y-6">
+          {/* 1 · VOTRE COMMERCE */}
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45">
+              1 · VOTRE COMMERCE
+            </p>
+            <div>
+              <label className="block text-xs font-bold text-ink mb-1">
+                Nom affiché sur la carte
+              </label>
+              <input
+                type="text"
+                value={commerce.name}
+                onChange={(e) => updateCommerce({ name: e.target.value })}
+                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2.5 text-xs font-semibold text-ink"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-ink mb-1.5">Logo</label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white text-ink/45 hover:border-coral"
+                >
+                  <Upload className="h-4 w-4" />
+                </button>
+                <div>
+                  <p className="text-xs font-bold text-coral">Ajouter un logo</p>
+                  <p className="text-[10px] text-ink/45">
+                    Carré de préférence · redimensionné automatiquement
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-ink mb-0.5">
+                Type d&apos;établissement
+              </label>
+              <p className="text-[10px] text-ink/45 mb-2">
+                Sert d&apos;icône tant que vous n&apos;avez pas de logo.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {ESTABLISHMENT_TYPES.map((t) => {
+                  const Icon = t.icon;
+                  const active = estType === t.label;
+                  return (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => setEstType(t.label)}
+                      className={`flex flex-col items-center justify-center gap-1 rounded-xl border py-2.5 px-2 text-[11px] font-semibold transition-all ${
+                        active
+                          ? 'border-coral bg-coral/[0.05] text-coral'
+                          : 'border-ink/[0.07] bg-white text-ink/70 hover:bg-ink/[0.02]'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* 2 · VOTRE COULEUR */}
+          <div className="space-y-2.5 pt-2 border-t border-ink/[0.06]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45">
+              2 · VOTRE COULEUR
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {SWATCH_COLORS.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => updateCommerce({ cardBgColor: hex })}
+                  style={{ backgroundColor: hex }}
+                  className={`h-8 w-8 rounded-full transition-transform ${
+                    commerce.cardBgColor === hex ? 'ring-2 ring-offset-2 ring-ink scale-110' : ''
+                  }`}
+                />
+              ))}
+              <div className="flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-3 py-1.5">
+                <span
+                  className="h-3.5 w-3.5 rounded-sm"
+                  style={{ backgroundColor: commerce.cardBgColor || '#1a1a1a' }}
+                />
+                <input
+                  type="text"
+                  value={commerce.cardBgColor || '#1a1a1a'}
+                  onChange={(e) => updateCommerce({ cardBgColor: e.target.value })}
+                  className="w-16 font-mono text-xs text-ink focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 3 · LE HAUT DE LA CARTE */}
+          <div className="space-y-3 pt-2 border-t border-ink/[0.06]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45">
+              3 · LE HAUT DE LA CARTE
+            </p>
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setTopMode('tampons')}
+                className={`rounded-xl border p-3.5 text-left transition-all ${
+                  topMode === 'tampons'
+                    ? 'border-coral bg-coral/[0.04]'
+                    : 'border-ink/10 bg-white'
+                }`}
+              >
+                <p className="text-xs font-bold text-ink">Les tampons</p>
+                <p className="mt-0.5 text-[11px] text-ink/50">
+                  Les cases se remplissent à chaque visite.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTopMode('photo')}
+                className={`rounded-xl border p-3.5 text-left transition-all ${
+                  topMode === 'photo'
+                    ? 'border-coral bg-coral/[0.04]'
+                    : 'border-ink/10 bg-white'
+                }`}
+              >
+                <p className="text-xs font-bold text-ink">Votre photo</p>
+                <p className="mt-0.5 text-[11px] text-ink/50">
+                  Les cases se posent sur votre image.
+                </p>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="flex h-12 w-16 flex-col items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white text-[10px] text-ink/45"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>Image</span>
+              </button>
+              <div>
+                <p className="text-xs font-bold text-coral">Ajouter une image</p>
+                <p className="text-[10px] text-ink/45">
+                  Visible si vous choisissez « Votre photo », ou au-delà de 12 cases.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 4 · TAMPONS PAR CARTE */}
+          <div className="space-y-3 pt-2 border-t border-ink/[0.06]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45">
+              4 · TAMPONS PAR CARTE
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[5, 6, 8, 10, 12].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setStampsCount(n)}
+                  className={`h-9 w-9 rounded-xl font-impact text-sm transition-all ${
+                    stampsCount === n
+                      ? 'bg-coral text-white shadow-hard-coral'
+                      : 'bg-white border border-ink/10 text-ink'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={stampsCount}
+                onChange={(e) => setStampsCount(Math.max(1, Number(e.target.value)))}
+                className="h-9 w-14 rounded-xl border border-ink/10 bg-white px-2 text-center text-xs font-bold text-ink"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-ink mb-1.5">
+                Icône dans les tampons
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {STAMP_ICONS.map((IconComp, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setStampIconIdx(idx)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
+                      stampIconIdx === idx
+                        ? 'border-coral bg-coral/[0.08] text-coral'
+                        : 'border-ink/10 bg-white text-ink/60 hover:text-ink'
+                    }`}
+                  >
+                    <IconComp className="h-3.5 w-3.5" />
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] text-ink/45">
+                Dessinée dans les tampons acquis, sur la carte web comme dans Apple et Google
+                Wallet. La récompense visée, elle, vient de votre Menu fidélité.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Sticky Save Bar */}
+      <div className="fixed bottom-0 right-0 left-0 md:left-[var(--largeur-rail)] z-20 border-t border-ink/[0.08] bg-white/90 backdrop-blur-md px-6 py-3 flex justify-end">
+        <button
+          type="button"
+          onClick={async () => {
+            const ok = await updateCommerce({ cardBgColor: commerce.cardBgColor });
+            if (ok) setSaved(true);
+          }}
+          className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral"
+        >
+          <Save className="h-3.5 w-3.5" />
+          {saved ? 'Enregistré ✓' : 'Enregistrer'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const ThumbsUpIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <Sparkles className={className} />
+);
+
+/* ============================================================================
+   7. EXTRA DASHBOARD PAGES:
+      - /reviews (Screenshot 10)
+      - /caisses & /equipe (Screenshots 6 & 7)
+      - /qrcode (Screenshot 9)
+      - /api-cles (Screenshot 12)
+      - /settings (Screenshot 13)
+      - /billing (Screenshot 15)
+      - /donnees-clients (Screenshot 11)
+   ============================================================================ */
+export const ExtraDashboardPages: React.FC<{
+  section:
+    | 'reviews'
+    | 'qrcode'
+    | 'caisses'
+    | 'pdv'
+    | 'api'
+    | 'settings'
+    | 'billing'
+    | 'donnees-clients'
+    | 'conseiller'
+    | 'admin';
+}> = ({ section }) => {
+  const { commerce, commerces, selectCommerce, employees, addEmployee, customers, updateCommerce } =
+    useStore();
+  const location = useLocation();
+
+  const [empName, setEmpName] = useState('');
+  const [respName, setRespName] = useState('');
+  const [teamPeriod, setTeamPeriod] = useState<'7j' | '30j' | 'debut' | 'jour'>('30j');
+  const [copied, setCopied] = useState(false);
+
+  // API state
+  const [apiKeyName, setApiKeyName] = useState('');
+  const [apiKeys, setApiKeys] = useState<{ id: string; name: string; token: string }[]>([]);
+
+  // Mon compte — Abonnement state (Screenshot 15)
+  const [rythme, setRythme] = useState<'mensuel' | 'semestriel' | 'annuel'>('mensuel');
+  const [emailPack, setEmailPack] = useState<0 | 200 | 400 | 700>(0);
+  const [payNotice, setPayNotice] = useState<string | null>(null);
+
+  // Mon compte — Données clients state (Screenshot 11)
+  const [canEmailClients, setCanEmailClients] = useState<'oui' | 'non'>('non');
+  const [birthDateRule, setBirthDateRule] = useState<'facultative' | 'obligatoire'>('facultative');
+  const [whyNoNamesOpen, setWhyNoNamesOpen] = useState(false);
+
+  // Mon compte — Paramètres state (Screenshot 13)
+  const [activityType, setActivityType] = useState(
+    'Commerce physique — mes clients viennent sur place'
+  );
+  const [phoneInput, setPhoneInput] = useState('');
+  const [cityInput, setCityInput] = useState('Alger');
+  const [addrInput, setAddrInput] = useState('');
+  const [descInput, setDescInput] = useState('');
+  const [siteInput, setSiteInput] = useState('');
+  const [resaInput, setResaInput] = useState('');
+  const [instaInput, setInstaInput] = useState('');
+  const [fbInput, setFbInput] = useState('');
+  const [tiktokInput, setTiktokInput] = useState('');
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [geoRadius, setGeoRadius] = useState(1000);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
+  const joinUrl = `https://fidelio.dz/join/${commerce.slug}`;
+
+  const copyLink = (txt: string) => {
+    navigator.clipboard.writeText(txt);
+    setCopied(true);
+  };
+
+  /* --------------------------------------------------------------------------
+     AVIS GOOGLE (/reviews) — Exact replica of Screenshot 10
+     -------------------------------------------------------------------------- */
+  if (section === 'reviews') {
+    return (
+      <div className="space-y-4">
+        <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+          AVIS GOOGLE
+        </h1>
+        <p className="text-xs text-ink/60">
+          Validez les demandes de bonus <strong className="text-ink">après avoir vérifié l&apos;avis Google</strong>. Chaque client ne peut être crédité qu&apos;une seule fois.
+        </p>
+
+        <div className="py-14 flex flex-col items-center justify-center text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink/[0.04] text-ink/40">
+            <Inbox className="h-5 w-5" />
+          </div>
+          <p className="mt-3 text-xs font-bold text-ink">Aucune demande en attente</p>
+          <p className="mt-0.5 text-[11px] text-ink/45">
+            Les demandes de bonus avis de vos clients apparaîtront ici.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* --------------------------------------------------------------------------
+     ÉQUIPE (/caisses & /equipe) — Exact replica of Screenshots 6 & 7
+     -------------------------------------------------------------------------- */
+  if (section === 'caisses') {
+    const isResponsablesTab = location.pathname.startsWith('/equipe');
+
+    if (isResponsablesTab) {
+      return (
+        <div className="max-w-lg space-y-4">
+          <p className="text-xs text-ink/55">
+            Un responsable gère un seul point de vente, sans accès à votre abonnement ni à vos
+            autres établissements.
+          </p>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!respName.trim()) return;
+              addEmployee(respName, commerce.name, 'RESP');
+              setRespName('');
+            }}
+            className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3"
+          >
+            <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+              <Plus className="h-3.5 w-3.5" />
+              <span>Nouveau responsable — {commerce.name}</span>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-ink/60 mb-1">
+                Prénom du responsable
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={respName}
+                  onChange={(e) => setRespName(e.target.value)}
+                  placeholder="Salma"
+                  className="flex-1 rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-coral px-4 py-2 text-xs font-bold text-white shadow-hard-coral"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Créer
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-1.5">
+            <p className="text-xs font-bold text-ink">Responsables actifs</p>
+            <p className="text-xs text-ink/50">
+              Personne pour l&apos;instant. Vous êtes seul à accéder à ce point de vente.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Tab 1: Caisses employé (/caisses) — Screenshot 6
+    return (
+      <div className="max-w-lg space-y-4">
+        <p className="text-xs text-ink/55">
+          Un accès limité au scan pour chaque employé — sans vos chiffres ni vos réglages.
+        </p>
+
+        {/* Card 1: Nouvelle caisse */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!empName.trim()) return;
+            addEmployee(empName, commerce.name, '1234');
+            setEmpName('');
+          }}
+          className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3"
+        >
+          <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+            <Plus className="h-3.5 w-3.5" />
+            <span>Nouvelle caisse</span>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-ink/60 mb-1">
+              Prénom de l&apos;employé
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={empName}
+                onChange={(e) => setEmpName(e.target.value)}
+                placeholder="Youssef"
+                className="flex-1 rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+              />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-coral px-4 py-2 text-xs font-bold text-white shadow-hard-coral"
+              >
+                <ScanLine className="h-3.5 w-3.5" />
+                Créer
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {/* Card 2: Classement de l'équipe */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+              <Trophy className="h-3.5 w-3.5 text-coral" />
+              <span>Classement de l&apos;équipe</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {(
+                [
+                  { k: '7j', l: '7 jours' },
+                  { k: '30j', l: '30 jours' },
+                  { k: 'debut', l: 'Depuis le début' },
+                  { k: 'jour', l: 'Un jour précis' },
+                ] as const
+              ).map((p) => (
+                <button
+                  key={p.k}
+                  type="button"
+                  onClick={() => setTeamPeriod(p.k)}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                    teamPeriod === p.k
+                      ? 'bg-ink text-white'
+                      : 'bg-ink/[0.04] text-ink/60 hover:text-ink'
+                  }`}
+                >
+                  {p.k === 'jour' && <Calendar className="h-2.5 w-2.5" />}
+                  {p.l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="py-5 text-center space-y-0.5">
+            <p className="text-xs text-ink/50">Aucune activité sur cette période.</p>
+            <p className="text-[11px] text-ink/40">
+              Le classement se remplit dès qu&apos;un caissier fait créer une carte ou scanne un
+              client.
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Caisses actives */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-2">
+          <p className="text-xs font-bold text-ink">Caisses actives</p>
+          {employees.length === 0 ? (
+            <p className="text-xs text-ink/50">
+              Aucune caisse pour l&apos;instant. Vous continuez à encaisser normalement depuis votre
+              propre compte.
+            </p>
+          ) : (
+            <div className="divide-y divide-ink/[0.06]">
+              {employees.map((emp) => (
+                <div key={emp.id} className="py-2 flex items-center justify-between text-xs">
+                  <span className="font-bold text-ink">{emp.name}</span>
+                  <span className="text-emerald-700 font-semibold">Active</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* --------------------------------------------------------------------------
+     QR CODE (/qrcode) — Exact replica of Screenshot 9
+     -------------------------------------------------------------------------- */
+  if (section === 'qrcode') {
+    return (
+      <div className="max-w-sm space-y-4">
+        <div>
+          <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+            QR CODE
+          </h1>
+          <p className="mt-1 text-xs text-ink/55">
+            Affichez ce QR code dans votre établissement pour que vos clients s&apos;inscrivent
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-soft flex flex-col items-center text-center">
+          <div className="rounded-2xl border-[3px] border-ink p-3 bg-white">
+            <QrCodeMatrix code={joinUrl} size={148} />
+          </div>
+
+          <p className="mt-4 text-xs font-bold text-ink">{commerce.name}</p>
+          <p className="mt-0.5 text-[10px] text-ink/45">{joinUrl}</p>
+
+          <div className="mt-4 grid grid-cols-2 gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => copyLink(joinUrl)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-ink/10 bg-white py-2.5 text-xs font-bold text-ink hover:bg-ink/[0.02]"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              {copied ? 'Copié ✓' : 'Copier le lien'}
+            </button>
+            <button
+              type="button"
+              onClick={() => copyLink(joinUrl)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-coral py-2.5 text-xs font-bold text-white shadow-hard-coral"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Télécharger SVG
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-2">
+          <p className="text-xs font-bold text-ink">Comment utiliser ce QR code ?</p>
+          <ol className="space-y-1.5 text-[11px] leading-relaxed text-ink/65">
+            <li>
+              <strong className="text-ink">1.</strong> Imprimez-le et affichez-le sur votre
+              comptoir, table ou menu.
+            </li>
+            <li>
+              <strong className="text-ink">2.</strong> Le client scanne et accepte — une adresse
+              email lui est demandée seulement si vous avez choisi de pouvoir lui écrire.
+            </li>
+            <li>
+              <strong className="text-ink">3.</strong> La carte de fidélité s&apos;installe
+              directement dans son Apple ou Google Wallet.
+            </li>
+          </ol>
+        </div>
+      </div>
+    );
+  }
+
+  /* --------------------------------------------------------------------------
+     API (/api-cles) — Exact replica of Screenshot 12
+     -------------------------------------------------------------------------- */
+  if (section === 'api') {
+    return (
+      <div className="max-w-lg space-y-4">
+        <div>
+          <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+            API
+          </h1>
+          <p className="mt-1 text-xs text-ink/55">
+            Reliez votre boutique en ligne ou votre logiciel de caisse à Fidelio : vos clients
+            gagnent leurs points partout.
+          </p>
+        </div>
+
+        {/* Card 1: Créer une clé */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!apiKeyName.trim()) return;
+            setApiKeys((prev) => [
+              ...prev,
+              {
+                id: String(Date.now()),
+                name: apiKeyName,
+                token: 'fdl_live_' + Math.random().toString(36).substring(2, 14),
+              },
+            ]);
+            setApiKeyName('');
+          }}
+          className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3"
+        >
+          <div className="flex items-center gap-2 text-xs font-bold text-ink">
+            <KeyRound className="h-3.5 w-3.5 text-ink/70" />
+            <span>Créer une clé</span>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-ink mb-1">Nom de la clé</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={apiKeyName}
+                onChange={(e) => setApiKeyName(e.target.value)}
+                placeholder="Boutique Shopify"
+                className="flex-1 rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+              />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1 rounded-xl bg-ink/55 px-4 py-2 text-xs font-bold text-white hover:bg-ink"
+              >
+                <Plus className="h-3.5 w-3.5" /> Créer
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {/* Card 2: Vos clés */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-2">
+          <p className="text-xs font-bold text-ink">Vos clés</p>
+          {apiKeys.length === 0 ? (
+            <p className="text-xs text-ink/45">Aucune clé pour l&apos;instant.</p>
+          ) : (
+            <div className="space-y-2">
+              {apiKeys.map((k) => (
+                <div
+                  key={k.id}
+                  className="flex items-center justify-between rounded-xl border border-ink/10 px-3 py-2 text-xs"
+                >
+                  <div>
+                    <p className="font-bold text-ink">{k.name}</p>
+                    <p className="font-mono text-[10px] text-ink/50">{k.token}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setApiKeys((prev) => prev.filter((x) => x.id !== k.id))}
+                    className="text-[11px] font-bold text-red-600"
+                  >
+                    Révoquer
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-ink/45">
+            Une clé révoquée cesse de marcher immédiatement. Si une clé a pu fuiter, révoquez-la et
+            créez-en une nouvelle.
+          </p>
+        </div>
+
+        {/* Card 3: Documentation de l'API */}
+        <Link
+          to="/docs/api"
+          className="flex w-full items-center gap-2 rounded-2xl border border-ink/[0.08] bg-white px-5 py-3.5 text-left text-xs font-bold text-ink shadow-soft hover:bg-ink/[0.01] transition-colors"
+        >
+          <BookOpen className="h-4 w-4 text-coral" />
+          <span>Documentation de l&apos;API, pour votre développeur</span>
+        </Link>
+      </div>
+    );
+  }
+
+  /* --------------------------------------------------------------------------
+     MON COMPTE — DONNÉES CLIENTS (/donnees-clients) — Screenshot 11
+     -------------------------------------------------------------------------- */
+  if (section === 'donnees-clients') {
+    return (
+      <div className="max-w-lg space-y-4">
+        <div className="flex items-center gap-1.5 text-[11px] text-ink/60">
+          <Clock className="h-3.5 w-3.5 text-coral" />
+          <span>Vous voyez un code par client, jamais son nom, son email ou son téléphone.</span>
+        </div>
+
+        {/* Card 1: Voulez-vous pouvoir écrire à vos clients ? */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+          <p className="text-xs font-bold text-ink">Voulez-vous pouvoir écrire à vos clients ?</p>
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setCanEmailClients('oui')}
+              className={`rounded-xl border p-3.5 text-left transition-all ${
+                canEmailClients === 'oui'
+                  ? 'border-coral bg-coral/[0.04]'
+                  : 'border-ink/10 bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+                <Mail className="h-3.5 w-3.5" />
+                <span>Oui</span>
+              </div>
+              <p className="mt-1 text-[10px] leading-relaxed text-ink/55">
+                L&apos;inscription demande un email. Vous pourrez envoyer des campagnes.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCanEmailClients('non')}
+              className={`rounded-xl border p-3.5 text-left transition-all ${
+                canEmailClients === 'non'
+                  ? 'border-coral bg-coral/[0.04]'
+                  : 'border-ink/10 bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+                <Mail className="h-3.5 w-3.5" />
+                <span>Non</span>
+              </div>
+              <p className="mt-1 text-[10px] leading-relaxed text-ink/55">
+                L&apos;inscription ne demande rien. Pas de campagnes email.
+              </p>
+            </button>
+          </div>
+          <p className="text-[10px] text-ink/45">
+            Vaut pour tous les points de vente de <strong className="text-ink">{commerce.name}</strong>. Les clients déjà inscrits ne sont pas touchés.
+          </p>
+        </div>
+
+        {/* Card 2: La date de naissance à l'inscription */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+          <p className="text-xs font-bold text-ink">La date de naissance à l&apos;inscription</p>
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setBirthDateRule('facultative')}
+              className={`rounded-xl border p-3.5 text-left transition-all ${
+                birthDateRule === 'facultative'
+                  ? 'border-coral bg-coral/[0.04]'
+                  : 'border-ink/10 bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>Facultative</span>
+              </div>
+              <p className="mt-1 text-[10px] leading-relaxed text-ink/55">
+                Le client peut la laisser vide. Le souhait d&apos;anniversaire ne touche que ceux
+                qui l&apos;ont donnée.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBirthDateRule('obligatoire')}
+              className={`rounded-xl border p-3.5 text-left transition-all ${
+                birthDateRule === 'obligatoire'
+                  ? 'border-coral bg-coral/[0.04]'
+                  : 'border-ink/10 bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+                <Cake className="h-3.5 w-3.5" />
+                <span>Obligatoire</span>
+              </div>
+              <p className="mt-1 text-[10px] leading-relaxed text-ink/55">
+                Pas de carte sans elle. Chaque nouveau client pourra recevoir votre souhait
+                d&apos;anniversaire.
+              </p>
+            </button>
+          </div>
+          <p className="text-[10px] leading-relaxed text-ink/45">
+            Vaut pour tous les points de vente de <strong className="text-ink">{commerce.name}</strong>. Les clients déjà inscrits ne sont pas touchés. Vous ne voyez jamais la date elle-même.
+          </p>
+        </div>
+
+        {/* Accordion: Pourquoi je ne vois pas les noms ? */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white shadow-soft">
+          <button
+            type="button"
+            onClick={() => setWhyNoNamesOpen((o) => !o)}
+            className="flex w-full items-center gap-2 px-4 py-3 text-left text-xs font-bold text-ink"
+          >
+            <span className="text-ink/40">{whyNoNamesOpen ? '▾' : '▸'}</span>
+            <span>Pourquoi je ne vois pas les noms ?</span>
+          </button>
+          {whyNoNamesOpen && (
+            <div className="border-t border-ink/[0.06] px-4 py-3 text-[11px] leading-relaxed text-ink/60">
+              Conformément à la protection des données personnelles (Déclaration ANPDP / CNDP
+              Algérie — Loi n° 18-07), l&apos;identité des porteurs est anonymisée par un code
+              unique afin de garantir une inscription en 1 clic sans friction et une sécurité totale
+              contre la fuite de fichiers clients.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* --------------------------------------------------------------------------
+     MON COMPTE — ABONNEMENT (/billing) — Exact replica of Screenshot 15
+     -------------------------------------------------------------------------- */
+  if (section === 'billing') {
+    const cycleCfg = {
+      mensuel: { l: 'Mensuel', moisFactures: 1, labelMois: "1 mois d'abonnement" },
+      semestriel: { l: '6 mois', moisFactures: 5, labelMois: "6 mois d'abonnement (-1 mois)" },
+      annuel: { l: '12 mois', moisFactures: 10, labelMois: "12 mois d'abonnement (-2 mois)" },
+    }[rythme];
+
+    const basePrice = 397 * cycleCfg.moisFactures;
+    const nextCharge = basePrice + emailPack;
+
+    return (
+      <div className="max-w-md space-y-4">
+        {/* Card 1: VOTRE ABONNEMENT */}
+        <div className="rounded-2xl border border-coral/35 bg-white p-5 shadow-soft space-y-3.5">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">
+              VOTRE ABONNEMENT
+            </p>
+            <p className="mt-1 font-impact text-2xl text-ink">397 DZD / mois</p>
+            <p className="text-[11px] text-ink/50">397 DZD × 1 point de vente</p>
+          </div>
+
+          <div className="flex gap-1 rounded-xl bg-ink/[0.04] p-1">
+            {(
+              [
+                { k: 'mensuel', l: 'Mensuel', o: '' },
+                { k: 'semestriel', l: '6 mois', o: '-1 mois' },
+                { k: 'annuel', l: '12 mois', o: '-2 mois' },
+              ] as const
+            ).map((c) => (
+              <button
+                key={c.k}
+                type="button"
+                onClick={() => setRythme(c.k)}
+                className={`flex-1 rounded-lg py-2 text-[11px] font-bold transition-all ${
+                  rythme === c.k ? 'bg-white text-ink shadow-sm' : 'text-ink/55'
+                }`}
+              >
+                {c.l} {c.o && <span className="text-coral">{c.o}</span>}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPayNotice(`Abonnement activé (${basePrice} DZD). Merci de votre confiance !`)
+            }
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-coral py-3 text-xs font-bold text-white shadow-hard-coral"
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            Activer — {basePrice} DZD
+          </button>
+
+          <p className="text-center text-[10px] text-ink/45">{cycleCfg.labelMois}</p>
+
+          <div className="pt-2 border-t border-ink/[0.06] space-y-2.5">
+            <div className="flex items-center gap-1.5 text-xs text-ink/70">
+              <Store className="h-3.5 w-3.5 text-ink/50" />
+              <span>
+                <strong className="text-ink">1</strong> point de vente ouvert — 397 DZD chacun
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-coral/80 px-3.5 py-2 text-xs font-bold text-white"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Ajouter un point de vente — 397 DZD
+            </button>
+
+            <p className="text-[10px] leading-relaxed text-ink/50">
+              397 DZD aujourd&apos;hui pour le mois en cours, puis{' '}
+              <strong className="text-ink">794 DZD par mois</strong> au prochain prélèvement.
+            </p>
+            <p className="text-[10px] text-ink/40">
+              Un point de vente s&apos;ajoute à un abonnement en cours. Réglez d&apos;abord votre
+              abonnement.
+            </p>
+          </div>
+
+          {payNotice && (
+            <p className="rounded-xl bg-emerald-50 p-2.5 text-xs font-semibold text-emerald-800">
+              {payNotice}
+            </p>
+          )}
+        </div>
+
+        {/* Card 2: EMAILS DU PRODUIT */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">
+              EMAILS DU PRODUIT
+            </span>
+            <Mail className="h-3.5 w-3.5 text-ink/35" />
+          </div>
+          <p className="font-impact text-xl text-ink">
+            0 <span className="text-ink/40">/ 5 000</span>
+          </p>
+          <div className="h-1.5 w-full rounded-full bg-ink/[0.06]" />
+          <p className="text-[11px] leading-relaxed text-ink/55">
+            Bienvenue, confirmation d&apos;inscription, relances automatiques : compris dans votre
+            abonnement, 5 000 par point de vente.
+          </p>
+        </div>
+
+        {/* Card 3: CAMPAGNES CE MOIS-CI */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">
+              CAMPAGNES CE MOIS-CI
+            </span>
+            <Send className="h-3.5 w-3.5 text-ink/35" />
+          </div>
+          <p className="font-impact text-xl text-ink">
+            0 <span className="text-ink/40">/ 0</span>
+          </p>
+          <p className="text-[11px] leading-relaxed text-ink/55">
+            🔒 Les campagnes ne sont pas comprises dans l&apos;abonnement. Choisissez un pack : vous
+            le réglez aujourd&apos;hui, et il est actif tout de suite.
+          </p>
+
+          <p className="text-xs font-bold text-ink pt-1">Ajouter des emails</p>
+
+          <div className="space-y-2">
+            {[
+              { cost: 0 as const, title: 'Aucun pack', sub: 'Aucune campagne ne part', right: '' },
+              {
+                cost: 200 as const,
+                title: '10 000 emails de campagne',
+                sub: 'chaque mois, partagés entre vos points de vente',
+                right: "200 DZD aujourd'hui",
+              },
+              {
+                cost: 400 as const,
+                title: '25 000 emails de campagne',
+                sub: 'chaque mois, partagés entre vos points de vente',
+                right: "400 DZD aujourd'hui",
+              },
+              {
+                cost: 700 as const,
+                title: '50 000 emails de campagne',
+                sub: 'chaque mois, partagés entre vos points de vente',
+                right: "700 DZD aujourd'hui",
+              },
+            ].map((pk) => {
+              const active = emailPack === pk.cost;
+              return (
+                <button
+                  key={pk.title}
+                  type="button"
+                  onClick={() => setEmailPack(pk.cost)}
+                  className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all ${
+                    active ? 'border-coral bg-coral/[0.03]' : 'border-ink/10 bg-white'
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-bold text-ink">{pk.title}</p>
+                    <p className="text-[10px] text-ink/45">{pk.sub}</p>
+                  </div>
+                  {pk.right ? (
+                    <div className="text-right">
+                      <p className="text-[11px] font-bold text-coral">{pk.right}</p>
+                      <p className="text-[9px] text-ink/40">pour le mois en cours</p>
+                    </div>
+                  ) : (
+                    active && <Check className="h-3.5 w-3.5 text-coral" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl bg-ink/[0.03] p-3">
+            <div>
+              <p className="text-xs font-bold text-ink">Prochain prélèvement</p>
+              <p className="text-[10px] text-ink/45">
+                Abonnement 397 DZD × 1 · par mois — en un seul prélèvement.
+              </p>
+            </div>
+            <span className="font-impact text-xl text-ink">{nextCharge} DZD</span>
+          </div>
+
+          <div className="rounded-xl border border-ink/[0.06] p-3 space-y-1 text-[10px] leading-relaxed text-ink/55">
+            <p className="font-bold text-ink">Conditions du pack</p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>
+                Prendre un pack, ou un pack plus grand : vous le réglez aujourd&apos;hui et il est
+                actif tout de suite.
+              </li>
+              <li>
+                Vous payez chaque mois qui reste jusqu&apos;à votre échéance, au tarif mensuel du
+                pack. Un mois entamé est dû en entier.
+              </li>
+              <li>
+                Pour un pack plus grand, vous ne payez que la différence avec votre pack actuel,
+                pour ces mêmes mois.
+              </li>
+              <li>Ensuite, le pack est compris dans chaque renouvellement de votre abonnement.</li>
+              <li>
+                Le volume vaut pour un mois civil : les emails non envoyés ne sont pas reportés au
+                mois suivant.
+              </li>
+              <li>
+                Réduire ou retirer votre pack : effet au prochain prélèvement, sans remboursement de
+                la période déjà réglée.
+              </li>
+            </ul>
+          </div>
+          <p className="text-[10px] text-ink/40">
+            Un pack s&apos;ajoute à un abonnement en cours. Réglez d&apos;abord votre abonnement.
+          </p>
+        </div>
+
+        {/* Card 4: Offre gratuite bottom summary card */}
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-soft flex flex-col items-center text-center space-y-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink/[0.05] text-ink/60">
+            <CreditCard className="h-4 w-4" />
+          </div>
+          <p className="text-xs font-bold text-ink">Offre gratuite</p>
+          <p className="text-[11px] text-ink/55 max-w-xs">
+            {customers.length} client sur 30 offerts. Votre programme fonctionne déjà ;
+            l&apos;abonnement lève la limite.
+          </p>
+
+          <div className="w-full max-w-[260px] rounded-2xl bg-coral p-5 text-white shadow-hard-coral">
+            <p className="font-impact text-3xl">397 DZD</p>
+            <p className="text-[11px] text-white/85">/ mois TTC</p>
+            <p className="mt-0.5 text-[10px] text-white/70">397 DZD par point de vente</p>
+            <p className="mt-2 text-[10px] text-white/90">
+              Clients illimités · Wallet · Push · Campagnes email
+            </p>
+          </div>
+
+          <div className="w-full max-w-[260px] rounded-xl border border-ink/10 bg-white px-4 py-2.5">
+            <p className="text-xs font-bold text-ink">
+              150 DZD <span className="font-normal text-[10px] text-ink/50">· une seule fois</span>
+            </p>
+            <p className="text-[10px] text-ink/50">
+              Carte NFC acrylique posée en caisse (optionnel)
+            </p>
+          </div>
+
+          <p className="text-[10px] text-ink/45 pt-1">
+            Une question avant de vous abonner ? Écrivez-nous sur{' '}
+            <a
+              href="mailto:fidelioapp.support@gmail.com"
+              className="font-semibold text-coral underline"
+            >
+              fidelioapp.support@gmail.com
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* --------------------------------------------------------------------------
+     MES POINTS DE VENTE (/points-de-vente)
+     -------------------------------------------------------------------------- */
+  if (section === 'pdv') {
+    return (
+      <div className="max-w-lg space-y-4">
+        <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+          MES POINTS DE VENTE
+        </h1>
+        <div className="space-y-3">
+          {commerces.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center justify-between rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-soft"
+            >
+              <div>
+                <p className="text-xs font-bold text-ink">{c.name}</p>
+                <p className="text-[11px] text-ink/50">/{c.slug}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => selectCommerce(c.id)}
+                className="rounded-xl bg-ink px-3.5 py-2 text-xs font-bold text-white"
+              >
+                {c.id === commerce.id ? 'Actif ✓' : 'Choisir'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /* --------------------------------------------------------------------------
+     MON COMPTE — PARAMÈTRES (/settings) — Exact replica of Screenshot 13
+     -------------------------------------------------------------------------- */
+  return (
+    <div className="max-w-md space-y-4">
+      {/* Card 1: Établissement */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3.5">
+        <p className="text-xs font-bold text-ink">Établissement</p>
+
+        <div>
+          <label className="block text-[11px] font-bold text-ink mb-1">Nom *</label>
+          <input
+            type="text"
+            value={commerce.name}
+            onChange={(e) => updateCommerce({ name: e.target.value })}
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-ink mb-1">Type d&apos;activité</label>
+          <select
+            value={activityType}
+            onChange={(e) => setActivityType(e.target.value)}
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-medium text-ink"
+          >
+            <option>Commerce physique — mes clients viennent sur place</option>
+            <option>Commerce en ligne — e-commerce ou livraison</option>
+          </select>
+          <p className="mt-1 text-[10px] text-ink/45">
+            Un commerce en ligne n&apos;a ni comptoir ni caisse : nous masquons ce qui ne le
+            concerne pas.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1">Téléphone</label>
+            <input
+              type="text"
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="+213 5 50 00 00 00"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-ink mb-1">Ville</label>
+            <input
+              type="text"
+              value={cityInput}
+              onChange={(e) => setCityInput(e.target.value)}
+              placeholder="Alger"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-ink mb-1">Adresse</label>
+          <input
+            type="text"
+            value={addrInput}
+            onChange={(e) => setAddrInput(e.target.value)}
+            placeholder="123 rue Didouche Mourad"
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-ink mb-1">Description courte</label>
+          <input
+            type="text"
+            value={descInput}
+            onChange={(e) => setDescInput(e.target.value)}
+            placeholder="Restaurant traditionnel algérien..."
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+          />
+        </div>
+
+        <div className="pt-2 border-t border-ink/[0.06] space-y-2.5">
+          <div>
+            <p className="text-[11px] font-bold text-ink">Liens sur la carte</p>
+            <p className="text-[10px] text-ink/45">
+              Affichés au dos de la carte de vos clients, dans leur wallet. L&apos;adresse et le
+              téléphone ci-dessus y figurent aussi, et sont cliquables.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-[10px] font-bold text-ink mb-1">Site web</label>
+              <input
+                type="text"
+                value={siteInput}
+                onChange={(e) => setSiteInput(e.target.value)}
+                placeholder="moncafe.dz"
+                className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-ink mb-1">
+                Réservation en ligne
+              </label>
+              <input
+                type="text"
+                value={resaInput}
+                onChange={(e) => setResaInput(e.target.value)}
+                placeholder="moncafe.dz/reserver"
+                className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-[10px] font-bold text-ink mb-1">Instagram</label>
+              <input
+                type="text"
+                value={instaInput}
+                onChange={(e) => setInstaInput(e.target.value)}
+                placeholder="instagram.com/moncafe"
+                className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-ink mb-1">Facebook</label>
+              <input
+                type="text"
+                value={fbInput}
+                onChange={(e) => setFbInput(e.target.value)}
+                placeholder="facebook.com/moncafe"
+                className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+              />
+            </div>
+          </div>
+
+          <div className="w-1/2 pr-1.5">
+            <label className="block text-[10px] font-bold text-ink mb-1">TikTok</label>
+            <input
+              type="text"
+              value={tiktokInput}
+              onChange={(e) => setTiktokInput(e.target.value)}
+              placeholder="tiktok.com/@moncafe"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Card 2: Notification à proximité */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+        <p className="text-xs font-bold text-ink">Notification à proximité</p>
+        <p className="text-[10px] leading-relaxed text-ink/55">
+          Vos clients reçoivent une notification quand ils passent près de chez vous, sans que vous
+          ayez rien à envoyer. Il faut que la carte soit dans leur wallet. Comptez quelques minutes
+          après leur entrée dans la zone : le téléphone n&apos;écoute pas le GPS en continu, il se
+          réveille par intermittence pour préserver la batterie.
+        </p>
+
+        <div>
+          <label className="block text-[10px] font-bold text-ink mb-1">
+            Emplacement de la boutique
+          </label>
+          <input
+            type="text"
+            value={mapsUrl}
+            onChange={(e) => setMapsUrl(e.target.value)}
+            placeholder="Collez votre lien Google Maps"
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+          />
+          <p className="mt-1 text-[9.5px] leading-relaxed text-ink/45">
+            Sur Google Maps : trouvez votre boutique, appuyez sur{' '}
+            <strong className="text-ink">Partager</strong>, puis copiez le lien. Vous pouvez aussi
+            saisir vos coordonnées : <code>36.7538, 3.0588</code>. Laissez vide pour désactiver.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <label className="block text-[10px] font-bold text-ink mb-1">
+              Distance de déclenchement
+            </label>
+            <input
+              type="number"
+              value={geoRadius}
+              onChange={(e) => setGeoRadius(Number(e.target.value))}
+              className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs font-semibold text-ink"
+            />
+            <p className="mt-1 text-[9.5px] leading-relaxed text-ink/45">
+              En mètres, jusqu&apos;à 2000. Couverture réelle :{' '}
+              <strong className="text-ink">≈ 850 m</strong>. Apple et Google fixent eux-mêmes la
+              portée de chaque point ; nous en plaçons plusieurs autour de votre boutique pour
+              couvrir la zone, sans jamais pouvoir dépasser ce plafond.
+            </p>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-ink mb-1">Message affiché</label>
+            <input
+              type="text"
+              value={commerce.geoNotificationText}
+              onChange={(e) => updateCommerce({ geoNotificationText: e.target.value })}
+              placeholder="Un café vous attend chez nous ☕"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink"
+            />
+            <p className="mt-1 text-[9.5px] leading-relaxed text-ink/45">
+              120 caractères maximum. Vide = « Vous êtes près de [votre commerce] ».
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={async () => {
+          const ok = await updateCommerce({
+            address: cityInput || commerce.address,
+            geoNotificationText: commerce.geoNotificationText,
+          });
+          if (ok) setSettingsSaved(true);
+        }}
+        className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral"
+      >
+        <Save className="h-3.5 w-3.5" />
+        {settingsSaved ? 'Enregistré ✓' : 'Enregistrer'}
+      </button>
+
+      {/* Card 3: Mot de passe */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-ink">
+          <KeyRound className="h-3.5 w-3.5 text-coral" />
+          <span>Mot de passe</span>
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-bold text-ink mb-1">Mot de passe actuel</label>
+          <div className="relative">
+            <input
+              type="password"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+            />
+            <Eye className="h-3.5 w-3.5 text-ink/35 absolute right-3 top-1/2 -translate-y-1/2" />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-bold text-ink mb-1">Nouveau mot de passe</label>
+          <div className="relative">
+            <input
+              type="password"
+              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+            />
+            <Eye className="h-3.5 w-3.5 text-ink/35 absolute right-3 top-1/2 -translate-y-1/2" />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-bold text-ink mb-1">
+            Confirmer le nouveau mot de passe
+          </label>
+          <input
+            type="password"
+            className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+          />
+        </div>
+
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-coral px-4 py-2.5 text-xs font-bold text-white shadow-hard-coral"
+        >
+          <KeyRound className="h-3.5 w-3.5" />
+          Changer le mot de passe
+        </button>
+      </div>
+
+      {/* Card 4: Résiliation */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-1.5">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+          <XCircle className="h-3.5 w-3.5 text-ink/45" />
+          <span>Résiliation</span>
+        </div>
+        <p className="text-[11px] text-ink/50">
+          Aucun abonnement payant sur ce compte : rien ne vous sera prélevé.
+        </p>
+      </div>
+    </div>
+  );
+};
