@@ -302,6 +302,7 @@ export const ScanPage: React.FC = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
+  const manualInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const paramCode = searchParams.get('code');
@@ -365,8 +366,37 @@ export const ScanPage: React.FC = () => {
       return;
     }
 
+    // Check secure context for camera permissions (HTTPS required except on localhost)
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol !== 'https:' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1'
+    ) {
+      setCameraError(
+        'La caméra requiert une connexion sécurisée HTTPS sur mobile. Le champ de saisie manuelle ci-dessous est 100% disponible.'
+      );
+      manualInputRef.current?.focus();
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError(
+        'Caméra non supportée par ce navigateur. Utilisez la saisie manuelle de secours ci-dessous.'
+      );
+      manualInputRef.current?.focus();
+      return;
+    }
+
     setCameraActive(true);
+    // Yield brief frame to ensure container element is mounted
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
     try {
+      const container = document.getElementById('caisse-qr-reader');
+      if (!container) {
+        throw new Error('Élément de caméra introuvable dans le DOM.');
+      }
       const scanner = new Html5Qrcode('caisse-qr-reader');
       qrScannerRef.current = scanner;
       await scanner.start(
@@ -386,11 +416,12 @@ export const ScanPage: React.FC = () => {
       );
     } catch (err) {
       setCameraActive(false);
+      qrScannerRef.current = null;
+      const msg = err instanceof Error ? err.message : String(err);
       setCameraError(
-        err instanceof Error
-          ? `Caméra indisponible (${err.message}). Utilisez la saisie manuelle de secours ci-dessous.`
-          : 'Caméra indisponible sur cet appareil. Utilisez la saisie manuelle de secours ci-dessous.'
+        `Caméra indisponible (${msg}). Le champ de saisie manuelle ci-dessous reste 100 % opérationnel.`
       );
+      manualInputRef.current?.focus();
     }
   };
 
@@ -497,11 +528,12 @@ export const ScanPage: React.FC = () => {
           </label>
           <div className="flex gap-2">
             <input
+              ref={manualInputRef}
               type="text"
               value={codeInput}
               onChange={(e) => setCodeInput(e.target.value)}
               placeholder="Ex: C-7K4M2P"
-              className="flex-1 rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 font-mono text-sm font-bold uppercase text-ink"
+              className="flex-1 rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 font-mono text-sm font-bold uppercase text-ink focus:outline-none focus:ring-2 focus:ring-coral/40"
             />
             <select
               value={selectedOperator}

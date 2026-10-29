@@ -228,16 +228,26 @@ class MemoryDatabase {
       if (s.includes('FROM CUSTOMERS')) {
         if (s.includes('WHERE')) {
           if (s.includes('MERCHANT_ID') && (s.includes('CODE') || s.includes('ID')) && argsArray.length >= 2) {
-            const mid = argsArray[0];
-            const val = argsArray[1];
-            return this.customers.filter((c) => c.merchant_id === mid && (c.code === val || c.id === val));
+            const mid = String(argsArray[0]);
+            const val = String(argsArray[1]).toUpperCase();
+            return this.customers.filter(
+              (c) => c.merchant_id === mid && (c.code.toUpperCase() === val || c.id === val)
+            );
           }
           if (s.includes('CODE') && s.includes('ID')) {
-            const val = argsArray[0];
-            return this.customers.filter((c) => c.code === val || c.id === val);
+            const val = String(argsArray[0] ?? '').toUpperCase();
+            const val2 = String(argsArray[1] ?? val).toUpperCase();
+            return this.customers.filter(
+              (c) =>
+                c.code.toUpperCase() === val ||
+                c.id === val ||
+                c.code.toUpperCase() === val2 ||
+                c.id === val2
+            );
           }
           if (s.includes('CODE')) {
-            return this.customers.filter((c) => c.code === argsArray[0]);
+            const targetCode = String(argsArray[0] || '').toUpperCase();
+            return this.customers.filter((c) => c.code.toUpperCase() === targetCode);
           }
           if (s.includes('MERCHANT_ID')) {
             return this.customers.filter((c) => c.merchant_id === argsArray[0]);
@@ -537,6 +547,16 @@ export async function runMigrations(): Promise<void> {
   migrationPromise = (async () => {
     try {
       const cli = getClient();
+
+      // SQLite Concurrency & Integrity: Enable WAL mode, busy timeout, and foreign keys
+      try {
+        await cli.execute('PRAGMA journal_mode = WAL;');
+        await cli.execute('PRAGMA busy_timeout = 5000;');
+        await cli.execute('PRAGMA foreign_keys = ON;');
+      } catch {
+        // Safe fallback for in-memory or Turso edge runtimes
+      }
+
       await cli.executeMultiple(`
         CREATE TABLE IF NOT EXISTS merchants (
           id TEXT PRIMARY KEY,

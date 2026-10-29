@@ -67,9 +67,13 @@ export default {
       }
     }
 
-    // Serve static frontend assets via ASSETS binding (Cloudflare Workers with static assets)
+    // Serve static frontend assets via ASSETS binding with SPA fallback
     if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-      return env.ASSETS.fetch(request);
+      const assetRes = await env.ASSETS.fetch(request);
+      if (assetRes.status === 404 && !url.pathname.includes('.')) {
+        return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
+      }
+      return assetRes;
     }
 
     return new Response('Not found', { status: 404 });

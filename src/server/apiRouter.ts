@@ -246,16 +246,29 @@ async function getMerchantWithProgram(idOrSlug?: string): Promise<{
   return { merchant, program };
 }
 
-export async function handleApiRequest(
+async function internalHandleApiRequest(
   method: string,
-  rawUrl: string,
+  urlObj: URL,
+  pathname: string,
   body?: unknown,
   headers?: Record<string, string | string[] | undefined>
 ): Promise<ApiResponse> {
-  const urlObj = new URL(rawUrl, 'http://localhost');
-  const pathname = urlObj.pathname;
-
   try {
+    /* ----------------------------------------------------------------------
+       GET /api/health — System Health check
+       ---------------------------------------------------------------------- */
+    if (method === 'GET' && pathname === '/api/health') {
+      return {
+        status: 200,
+        data: {
+          ok: true,
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          uptime: typeof process !== 'undefined' && process.uptime ? process.uptime() : 0,
+        },
+      };
+    }
+
     /* ----------------------------------------------------------------------
        GET /api/state — Full initial state for StoreContext hydration
        ---------------------------------------------------------------------- */
@@ -1178,6 +1191,40 @@ export async function handleApiRequest(
       },
     };
   }
+}
+
+/**
+ * Main API request dispatcher with structured logging
+ * Output format: [API] METHOD /route - Status 200/400/500 (XXms)
+ */
+export async function handleApiRequest(
+  method: string,
+  rawUrl: string,
+  body?: unknown,
+  headers?: Record<string, string | string[] | undefined>
+): Promise<ApiResponse> {
+  const urlObj = new URL(rawUrl, 'http://localhost');
+  const pathname = urlObj.pathname;
+  const startTime = Date.now();
+
+  let result: ApiResponse;
+  try {
+    result = await internalHandleApiRequest(method, urlObj, pathname, body, headers);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erreur interne critique du serveur';
+    result = {
+      status: 500,
+      data: {
+        ok: false,
+        error: message,
+        erreur: { code: 'erreur_critique', message },
+      },
+    };
+  }
+
+  const duration = Date.now() - startTime;
+  console.log(`[API] ${method} ${pathname} - Status ${result.status} (${duration}ms)`);
+  return result;
 }
 
 /**
