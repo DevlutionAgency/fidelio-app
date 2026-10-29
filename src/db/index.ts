@@ -42,11 +42,11 @@ export function setTursoConfig(url: string, authToken?: string): void {
  * Checks whether the current runtime is Cloudflare Workers (Web Standards isolate)
  */
 export function isCloudflareRuntime(): boolean {
-  if (typeof (globalThis as any).WebSocketPair !== 'undefined') return true;
-  if (typeof (globalThis as any).caches?.default !== 'undefined') return true;
-  if (typeof navigator !== 'undefined' && Boolean(navigator.userAgent?.includes('Cloudflare'))) return true;
-  if (typeof process === 'undefined' || !process?.versions?.node) return true;
-  return false;
+  return (
+    (typeof navigator !== 'undefined' && Boolean(navigator.userAgent?.includes('Cloudflare'))) ||
+    typeof (globalThis as any).WebSocketPair !== 'undefined' ||
+    typeof (globalThis as any).caches?.default !== 'undefined'
+  );
 }
 
 /**
@@ -54,7 +54,6 @@ export function isCloudflareRuntime(): boolean {
  * when TURSO_DATABASE_URL is not yet configured.
  */
 class MemoryDatabase {
-  users: any[] = [];
   merchants: any[] = [];
   loyalty_programs: any[] = [];
   customers: any[] = [];
@@ -62,7 +61,126 @@ class MemoryDatabase {
   leads: any[] = [];
 
   constructor() {
-    // Zero hardcoded mocks or demo seeds: pure multi-tenant data isolation
+    const now = new Date().toISOString();
+    // Pre-seed default Gourmand merchant
+    this.merchants.push({
+      id: 'com-1',
+      name: 'Gourmand',
+      slug: 'gourmand-klzq',
+      email: 'contact@gourmand.dz',
+      phone: '+213 5 50 00 00 00',
+      password_hash: hashPassword('password123'),
+      category: 'Restaurant',
+      address: 'Alger',
+      card_bg_color: '#1a1a1a',
+      card_accent_color: '#f85b04',
+      card_cover_image: '/landing/cartes/ongles.webp',
+      card_logo_image: '/brand/logo-mark.png',
+      google_review_url: 'https://search.google.com/local/writereview?placeid=',
+      geo_notification_text: 'Un café vous attend chez nous ☕',
+      created_at: now,
+    });
+
+    this.loyalty_programs.push({
+      id: 'prog-1',
+      merchant_id: 'com-1',
+      name: 'Programme Fidélité Gourmand',
+      mode: 'tampons',
+      points_per_dzd: 1,
+      stamps_per_visit: 1,
+      stamps_target: 10,
+      welcome_bonus: 0,
+      referral_bonus: 0,
+      google_review_bonus: 0,
+      rewards_json: JSON.stringify([
+        {
+          id: 'rew-default-1',
+          title: 'Café ou Dessert offert',
+          cost: 5,
+          description: 'Dès 5 passages ou points cumulés',
+          category: 'Boisson',
+          redemptions: 0,
+        },
+        {
+          id: 'rew-default-2',
+          title: 'Menu Complet offert',
+          cost: 10,
+          description: 'Votre 10ème passage récompensé',
+          category: 'Repas',
+          redemptions: 0,
+        },
+      ]),
+      updated_at: now,
+    });
+
+    // Pre-seed Administrator / Support account
+    this.merchants.push({
+      id: 'com-support',
+      name: 'Fidelio Alger',
+      slug: 'fidelio-alger',
+      email: 'fidelioapp.support@gmail.com',
+      phone: '+213 5 50 12 34 56',
+      password_hash: hashPassword('Walid@12'),
+      category: 'Commerce',
+      address: 'Didouche Mourad, Alger',
+      card_bg_color: '#1a1a1a',
+      card_accent_color: '#f85b04',
+      card_cover_image: '/landing/cartes/ongles.webp',
+      card_logo_image: '/brand/logo-mark.png',
+      google_review_url: 'https://search.google.com/local/writereview?placeid=',
+      geo_notification_text: 'Bienvenue chez Fidelio Alger ✨',
+      created_at: now,
+    });
+
+    this.loyalty_programs.push({
+      id: 'prog-support',
+      merchant_id: 'com-support',
+      name: 'Programme Privilège Fidelio',
+      mode: 'points',
+      points_per_dzd: 1,
+      stamps_per_visit: 1,
+      stamps_target: 100,
+      welcome_bonus: 25,
+      referral_bonus: 15,
+      google_review_bonus: 10,
+      rewards_json: JSON.stringify([
+        {
+          id: 'rew-support-1',
+          title: 'Boisson d’accueil offerte',
+          cost: 50,
+          description: 'Dès 50 points cumulés',
+          category: 'Boisson',
+          redemptions: 0,
+        },
+        {
+          id: 'rew-support-2',
+          title: 'Remise 20% sur la commande',
+          cost: 100,
+          description: 'Valable sur toute la carte',
+          category: 'Remise',
+          redemptions: 0,
+        },
+      ]),
+      updated_at: now,
+    });
+
+    this.customers.push({
+      id: 'cust-sup-1',
+      merchant_id: 'com-support',
+      code: 'C-FIDEL1',
+      name: 'Yacine Boutaleb',
+      phone: '+213 5 55 12 34 56',
+      email: 'yacine.b@gmail.com',
+      points: 75,
+      visits: 4,
+      total_spent: 3750,
+      wallet_added: 'apple',
+      google_review_done: 1,
+      unlocked_rewards_json: JSON.stringify(['Boisson d’accueil offerte']),
+      member_since: '2026-10-01T10:00:00Z',
+      last_visit: now,
+      created_at: now,
+    });
   }
 
   query(sql: string, args: InArgs = []): any[] {
@@ -75,41 +193,11 @@ class MemoryDatabase {
         if (s.includes('FROM LEADS')) count = this.leads.length;
         else if (s.includes('FROM MERCHANTS')) count = this.merchants.length;
         else if (s.includes('FROM CUSTOMERS')) count = this.customers.length;
-        else if (s.includes('FROM USERS')) count = this.users.length;
         return [{ cnt: count, count }];
-      }
-
-      if (s.includes('FROM USERS')) {
-        if (s.includes('WHERE')) {
-          if (s.includes('ID = ?')) {
-            return this.users.filter((u) => u.id === argsArray[0]);
-          }
-          if (s.includes('EMAIL')) {
-            const targetEmail = String(argsArray[0] || '').trim().toLowerCase();
-            return this.users.filter((u) => u.email.toLowerCase() === targetEmail);
-          }
-          return [];
-        }
-        return [...this.users];
       }
 
       if (s.includes('FROM MERCHANTS')) {
         if (s.includes('WHERE')) {
-          if (s.includes('OWNER_ID = ?') && (s.includes('ID = ?') || s.includes('SLUG = ?'))) {
-            const matchVal = argsArray[0];
-            const ownerId = argsArray[1];
-            return this.merchants.filter(
-              (m) => m.owner_id === ownerId && (m.id === matchVal || m.slug === matchVal)
-            );
-          }
-          if (s.includes('OWNER_ID = ?')) {
-            return this.merchants.filter((m) => m.owner_id === argsArray[0]);
-          }
-          if (s.includes('ID = ?') && s.includes('SLUG = ?')) {
-            const val1 = argsArray[0];
-            const val2 = argsArray[1] ?? val1;
-            return this.merchants.filter((m) => m.id === val1 || m.slug === val2 || m.slug === val1);
-          }
           if (s.includes('ID = ?')) {
             return this.merchants.filter((m) => m.id === argsArray[0]);
           }
@@ -187,67 +275,26 @@ class MemoryDatabase {
     }
 
     if (s.startsWith('INSERT')) {
-      if (s.includes('INTO USERS')) {
+      if (s.includes('INTO MERCHANTS')) {
         const item = {
           id: argsArray[0],
-          email: argsArray[1],
-          password_hash: argsArray[2],
-          name: argsArray[3],
-          phone: argsArray[4] || '',
-          created_at: argsArray[5] || new Date().toISOString(),
+          name: argsArray[1],
+          slug: argsArray[2],
+          email: argsArray[3],
+          phone: argsArray[4],
+          password_hash: argsArray[5],
+          category: argsArray[6] || 'Commerce',
+          address: argsArray[7] || 'Alger',
+          card_bg_color: argsArray[8] || '#1a1a1a',
+          card_accent_color: argsArray[9] || '#f85b04',
+          card_cover_image: argsArray[10] || '/landing/cartes/ongles.webp',
+          card_logo_image: argsArray[11] || '/brand/logo-mark.png',
+          google_review_url: argsArray[12] || '',
+          geo_notification_text: argsArray[13] || '',
+          created_at: argsArray[14] || new Date().toISOString(),
         };
-        const itemEmail = String(item.email || '').toLowerCase();
-        const exists = this.users.find(
-          (u) => u.id === item.id || String(u.email || '').toLowerCase() === itemEmail
-        );
-        if (!exists) this.users.push(item);
-        return [];
-      }
-
-      if (s.includes('INTO MERCHANTS')) {
-        const hasOwner = s.includes('OWNER_ID');
-        let item: any;
-        if (hasOwner) {
-          item = {
-            id: argsArray[0],
-            owner_id: argsArray[1],
-            name: argsArray[2],
-            slug: argsArray[3],
-            email: argsArray[4],
-            phone: argsArray[5],
-            password_hash: argsArray[6],
-            category: argsArray[7] || 'Commerce',
-            address: argsArray[8] || 'Alger',
-            card_bg_color: argsArray[9] || '#1a1a1a',
-            card_accent_color: argsArray[10] || '#f85b04',
-            card_cover_image: argsArray[11] || '/landing/cartes/ongles.webp',
-            card_logo_image: argsArray[12] || '/brand/logo-mark.png',
-            google_review_url: argsArray[13] || '',
-            geo_notification_text: argsArray[14] || '',
-            created_at: argsArray[15] || new Date().toISOString(),
-          };
-        } else {
-          item = {
-            id: argsArray[0],
-            owner_id: 'usr-default',
-            name: argsArray[1],
-            slug: argsArray[2],
-            email: argsArray[3],
-            phone: argsArray[4],
-            password_hash: argsArray[5],
-            category: argsArray[6] || 'Commerce',
-            address: argsArray[7] || 'Alger',
-            card_bg_color: argsArray[8] || '#1a1a1a',
-            card_accent_color: argsArray[9] || '#f85b04',
-            card_cover_image: argsArray[10] || '/landing/cartes/ongles.webp',
-            card_logo_image: argsArray[11] || '/brand/logo-mark.png',
-            google_review_url: argsArray[12] || '',
-            geo_notification_text: argsArray[13] || '',
-            created_at: argsArray[14] || new Date().toISOString(),
-          };
-        }
-        this.merchants = this.merchants.filter((m) => m.id !== item.id && m.email !== item.email);
-        this.merchants.push(item);
+        const exists = this.merchants.find((m) => m.id === item.id || m.email === item.email);
+        if (!exists) this.merchants.push(item);
         return [];
       }
 
@@ -384,48 +431,6 @@ class MemoryDatabase {
         }
         return [];
       }
-
-      if (s.includes('MERCHANTS') && s.includes('OWNER_ID = ?')) {
-        const newOwner = String(argsArray[0]);
-        const matchVal = String(argsArray[1]);
-        this.merchants.forEach((m) => {
-          if (m.id === matchVal || m.email.toLowerCase() === matchVal.toLowerCase()) {
-            m.owner_id = newOwner;
-          }
-        });
-        return [];
-      }
-    }
-
-    if (s.startsWith('DELETE')) {
-      if (s.includes('FROM MERCHANTS')) {
-        if (s.includes('COM-1') || s.includes('COM-SUPPORT') || s.includes('IN')) {
-          this.merchants = this.merchants.filter(
-            (m) =>
-              !['com-1', 'com-support'].includes(m.id) &&
-              !['gourmand-klzq', 'fidelio-alger'].includes(m.slug)
-          );
-        }
-        return [];
-      }
-      if (s.includes('FROM LOYALTY_PROGRAMS')) {
-        this.loyalty_programs = this.loyalty_programs.filter(
-          (p) => !['com-1', 'com-support'].includes(p.merchant_id)
-        );
-        return [];
-      }
-      if (s.includes('FROM CUSTOMERS')) {
-        this.customers = this.customers.filter(
-          (c) => !['com-1', 'com-support'].includes(c.merchant_id)
-        );
-        return [];
-      }
-      if (s.includes('FROM TRANSACTIONS')) {
-        this.transactions = this.transactions.filter(
-          (t) => !['com-1', 'com-support'].includes(t.merchant_id)
-        );
-        return [];
-      }
     }
 
     return [];
@@ -553,18 +558,8 @@ export async function runMigrations(): Promise<void> {
       }
 
       await cli.executeMultiple(`
-        CREATE TABLE IF NOT EXISTS users (
-          id TEXT PRIMARY KEY,
-          email TEXT NOT NULL UNIQUE,
-          password_hash TEXT NOT NULL,
-          name TEXT NOT NULL,
-          phone TEXT NOT NULL DEFAULT '',
-          created_at TEXT NOT NULL
-        );
-
         CREATE TABLE IF NOT EXISTS merchants (
           id TEXT PRIMARY KEY,
-          owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
           name TEXT NOT NULL,
           slug TEXT NOT NULL UNIQUE,
           email TEXT NOT NULL UNIQUE,
@@ -647,50 +642,59 @@ export async function runMigrations(): Promise<void> {
         );
       `);
 
-      // 1. Ensure owner_id column exists on merchants table for SQLite
-      try {
-        await cli.execute('ALTER TABLE merchants ADD COLUMN owner_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
-      } catch {
-        // Column already exists or table freshly created
-      }
+      const now = new Date().toISOString();
 
-      // 2. Multi-tenant Cleanup: Purge hardcoded demo seeds (Gourmand, Fidelio Alger)
-      try {
-        await cli.execute("DELETE FROM merchants WHERE id IN ('com-1', 'com-support') OR slug IN ('gourmand-klzq', 'fidelio-alger');");
-        await cli.execute("DELETE FROM loyalty_programs WHERE merchant_id IN ('com-1', 'com-support');");
-        await cli.execute("DELETE FROM customers WHERE merchant_id IN ('com-1', 'com-support');");
-        await cli.execute("DELETE FROM transactions WHERE merchant_id IN ('com-1', 'com-support');");
-      } catch {
-        // Safe ignore
-      }
+      // Seed default Gourmand merchant
+      await dbRun(
+        `INSERT OR IGNORE INTO merchants (
+          id, name, slug, email, phone, password_hash, category, address,
+          card_bg_color, card_accent_color, card_cover_image, card_logo_image,
+          google_review_url, geo_notification_text, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'com-1',
+          'Gourmand',
+          'gourmand-klzq',
+          'contact@gourmand.dz',
+          '+213 5 50 00 00 00',
+          hashPassword('password123'),
+          'Restaurant',
+          'Alger',
+          '#1a1a1a',
+          '#f85b04',
+          '/landing/cartes/ongles.webp',
+          '/brand/logo-mark.png',
+          'https://search.google.com/local/writereview?placeid=',
+          'Un café vous attend chez nous ☕',
+          now,
+        ]
+      );
 
-      // 3. Multi-tenant Backfill: Auto-assign user accounts to any unassigned legitimate merchants
-      try {
-        const unownedResult = await cli.execute(
-          "SELECT id, email, password_hash, name, phone, created_at FROM merchants WHERE owner_id IS NULL OR owner_id = '';"
-        );
-        for (const row of unownedResult.rows) {
-          const r = row as any;
-          const userId = `usr-${r.id.replace('com-', '')}`;
-          await cli.execute({
-            sql: 'INSERT OR IGNORE INTO users (id, email, password_hash, name, phone, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-            args: [
-              userId,
-              r.email,
-              r.password_hash,
-              r.name,
-              r.phone || '',
-              r.created_at || new Date().toISOString(),
-            ],
-          });
-          await cli.execute({
-            sql: 'UPDATE merchants SET owner_id = ? WHERE id = ?',
-            args: [userId, r.id],
-          });
-        }
-      } catch {
-        // Safe ignore
-      }
+      // Seed Administrator / Support account
+      await dbRun(
+        `INSERT OR IGNORE INTO merchants (
+          id, name, slug, email, phone, password_hash, category, address,
+          card_bg_color, card_accent_color, card_cover_image, card_logo_image,
+          google_review_url, geo_notification_text, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'com-support',
+          'Fidelio Alger',
+          'fidelio-alger',
+          'fidelioapp.support@gmail.com',
+          '+213 5 50 12 34 56',
+          hashPassword('Walid@12'),
+          'Commerce',
+          'Didouche Mourad, Alger',
+          '#1a1a1a',
+          '#f85b04',
+          '/landing/cartes/ongles.webp',
+          '/brand/logo-mark.png',
+          'https://search.google.com/local/writereview?placeid=',
+          'Bienvenue chez Fidelio Alger ✨',
+          now,
+        ]
+      );
 
       migrationDone = true;
     } catch (err) {

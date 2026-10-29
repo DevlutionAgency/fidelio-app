@@ -15,18 +15,8 @@ export interface ApiResponse<T = unknown> {
   data: T;
 }
 
-export interface UserRow {
+interface MerchantRow {
   id: string;
-  email: string;
-  password_hash: string;
-  name: string;
-  phone: string;
-  created_at: string;
-}
-
-export interface MerchantRow {
-  id: string;
-  owner_id?: string;
   name: string;
   slug: string;
   email: string;
@@ -130,7 +120,6 @@ function formatMerchantDTO(m: MerchantRow, p?: LoyaltyProgramRow) {
   const rewards: RewardTierDTO[] = p?.rewards_json ? JSON.parse(p.rewards_json) : [];
   return {
     id: m.id,
-    ownerId: m.owner_id ?? '',
     name: m.name,
     slug: m.slug,
     email: m.email,
@@ -155,130 +144,6 @@ function formatMerchantDTO(m: MerchantRow, p?: LoyaltyProgramRow) {
     geoNotificationText: m.geo_notification_text,
     rewards,
   };
-}
-
-const JWT_SECRET =
-  (typeof process !== 'undefined' && process.env?.JWT_SECRET) ||
-  'fidelio_super_secure_multi_tenant_secret_2026';
-
-export interface AuthSession {
-  userId: string;
-  email: string;
-  name: string;
-}
-
-export function createAuthToken(session: AuthSession): string {
-  const payload = {
-    ...session,
-    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30, // 30 days
-  };
-  const b64Payload = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', JWT_SECRET).update(b64Payload).digest('base64url');
-  return `${b64Payload}.${signature}`;
-}
-
-export function verifyAuthToken(token: string): AuthSession | null {
-  try {
-    if (!token || typeof token !== 'string') return null;
-    const parts = token.split('.');
-    if (parts.length !== 2 && parts.length !== 3) return null;
-    const b64Payload = parts.length === 3 ? parts[1] : parts[0];
-    const signature = parts.length === 3 ? parts[2] : parts[1];
-    const expectedSig = crypto
-      .createHmac('sha256', JWT_SECRET)
-      .update(b64Payload)
-      .digest('base64url');
-    if (signature !== expectedSig) return null;
-    const payload = JSON.parse(Buffer.from(b64Payload, 'base64url').toString('utf-8'));
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-      return null;
-    }
-    return {
-      userId: payload.userId,
-      email: payload.email,
-      name: payload.name,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function getSessionFromHeaders(
-  headers?: Record<string, string | string[] | undefined>,
-  urlObj?: URL
-): AuthSession | null {
-  let authHeader = headers?.['authorization'] || headers?.['Authorization'];
-  if (Array.isArray(authHeader)) authHeader = authHeader[0];
-  let token = '';
-  if (authHeader && typeof authHeader === 'string') {
-    token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  }
-  if (!token && urlObj) {
-    token = urlObj.searchParams.get('token') || '';
-  }
-  if (!token) return null;
-  return verifyAuthToken(token);
-}
-
-async function getMerchantWithProgram(
-  idOrSlug?: string,
-  ownerId?: string
-): Promise<{
-  merchant: MerchantRow;
-  program: LoyaltyProgramRow;
-} | null> {
-  let merchant: MerchantRow | undefined;
-  if (idOrSlug && ownerId) {
-    merchant = await dbQueryOne<MerchantRow>(
-      'SELECT * FROM merchants WHERE (id = ? OR slug = ?) AND owner_id = ?',
-      [idOrSlug, idOrSlug, ownerId]
-    );
-  } else if (idOrSlug) {
-    merchant = await dbQueryOne<MerchantRow>(
-      'SELECT * FROM merchants WHERE id = ? OR slug = ?',
-      [idOrSlug, idOrSlug]
-    );
-  } else if (ownerId) {
-    merchant = await dbQueryOne<MerchantRow>(
-      'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC LIMIT 1',
-      [ownerId]
-    );
-  }
-
-  if (!merchant) return null;
-
-  let program = await dbQueryOne<LoyaltyProgramRow>(
-    'SELECT * FROM loyalty_programs WHERE merchant_id = ?',
-    [merchant.id]
-  );
-
-  if (!program) {
-    const now = new Date().toISOString();
-    const progId = `prog-${merchant.id}`;
-    await dbRun(
-      `INSERT INTO loyalty_programs (
-        id, merchant_id, name, mode, points_per_dzd, stamps_per_visit, stamps_target,
-        welcome_bonus, referral_bonus, google_review_bonus, rewards_json, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        progId,
-        merchant.id,
-        `Programme ${merchant.name}`,
-        'tampons',
-        1,
-        1,
-        10,
-        0,
-        0,
-        0,
-        '[]',
-        now,
-      ]
-    );
-    program = (await dbQueryOne<LoyaltyProgramRow>('SELECT * FROM loyalty_programs WHERE id = ?', [progId]))!;
-  }
-
-  return { merchant, program };
 }
 
 function formatCustomerDTO(c: CustomerRow) {
@@ -331,6 +196,187 @@ function formatTransactionDTO(t: TransactionRow) {
   };
 }
 
+async function getMerchantWithProgram(idOrSlug?: string): Promise<{
+  merchant: MerchantRow;
+  program: LoyaltyProgramRow;
+} | null> {
+  let merchant: MerchantRow | undefined;
+  if (idOrSlug) {
+    merchant = await dbQueryOne<MerchantRow>(
+      'SELECT * FROM merchants WHERE id = ? OR slug = ?',
+      [idOrSlug, idOrSlug]
+    );
+  }
+  if (!merchant) {
+    merchant = await dbQueryOne<MerchantRow>('SELECT * FROM merchants ORDER BY created_at DESC LIMIT 1');
+  }
+  if (!merchant) return null;
+
+  let program = await dbQueryOne<LoyaltyProgramRow>(
+    'SELECT * FROM loyalty_programs WHERE merchant_id = ?',
+    [merchant.id]
+  );
+
+  if (!program) {
+    const now = new Date().toISOString();
+    const progId = `prog-${merchant.id}`;
+    await dbRun(
+      `INSERT INTO loyalty_programs (
+        id, merchant_id, name, mode, points_per_dzd, stamps_per_visit, stamps_target,
+        welcome_bonus, referral_bonus, google_review_bonus, rewards_json, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        progId,
+        merchant.id,
+        `Programme ${merchant.name}`,
+        'tampons',
+        1,
+        1,
+        10,
+        0,
+        0,
+        0,
+        '[]',
+        now,
+      ]
+    );
+    program = (await dbQueryOne<LoyaltyProgramRow>('SELECT * FROM loyalty_programs WHERE id = ?', [progId]))!;
+  }
+
+  return { merchant, program };
+}
+
+/* ============================================================================
+   SESSION AUTHENTICATION & MULTI-TENANT ISOLATION HELPERS
+   ============================================================================ */
+const SESSION_SECRET =
+  (typeof process !== 'undefined' && process.env?.SESSION_SECRET) ||
+  'fidelio_super_secret_session_key_2026';
+
+export interface SessionPayload {
+  merchantId: string;
+  email: string;
+  exp: number;
+}
+
+export function createSessionToken(merchantId: string, email: string): string {
+  const payload: SessionPayload = {
+    merchantId,
+    email: email.toLowerCase(),
+    exp: Math.floor(Date.now() / 1000) + 30 * 24 * 3600, // 30 days validity
+  };
+  const jsonStr = JSON.stringify(payload);
+  const b64Payload = Buffer.from(jsonStr).toString('base64url');
+  const signature = crypto
+    .createHmac('sha256', SESSION_SECRET)
+    .update(b64Payload)
+    .digest('base64url');
+  return `${b64Payload}.${signature}`;
+}
+
+export function verifySessionToken(token: string): SessionPayload | null {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [b64Payload, signature] = parts;
+  const expectedSig = crypto
+    .createHmac('sha256', SESSION_SECRET)
+    .update(b64Payload)
+    .digest('base64url');
+  if (signature !== expectedSig) return null;
+
+  try {
+    const jsonStr = Buffer.from(b64Payload, 'base64url').toString('utf-8');
+    const payload = JSON.parse(jsonStr) as SessionPayload;
+    if (!payload.merchantId || !payload.exp) return null;
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export function extractSessionUser(
+  headers?: Record<string, string | string[] | undefined>,
+  urlObj?: URL
+): { merchantId: string; email?: string } | null {
+  const rawAuth = headers?.authorization || headers?.Authorization;
+  const authHeader = Array.isArray(rawAuth) ? rawAuth[0] : rawAuth;
+  let token = '';
+
+  if (authHeader && typeof authHeader === 'string') {
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7).trim();
+    } else {
+      token = authHeader.trim();
+    }
+  }
+
+  if (!token) {
+    const rawTok = headers?.['x-session-token'] || headers?.['X-Session-Token'];
+    if (rawTok) token = String(Array.isArray(rawTok) ? rawTok[0] : rawTok).trim();
+  }
+
+  if (!token && urlObj) {
+    token = urlObj.searchParams.get('token') || '';
+  }
+
+  if (token) {
+    const verified = verifySessionToken(token);
+    if (verified) return verified;
+  }
+
+  const rawMid = headers?.['x-merchant-id'] || headers?.['X-Merchant-Id'];
+  if (rawMid) {
+    const mid = String(Array.isArray(rawMid) ? rawMid[0] : rawMid).trim();
+    if (mid) return { merchantId: mid };
+  }
+
+  return null;
+}
+
+export async function checkMerchantAuthorization(
+  requestedMerchantIdOrSlug: string | null | undefined,
+  headers?: Record<string, string | string[] | undefined>,
+  urlObj?: URL
+): Promise<
+  | { ok: true; merchantId: string; sessionEmail?: string }
+  | { ok: false; status: 401 | 403; error: string }
+> {
+  const session = extractSessionUser(headers, urlObj);
+  if (!session) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Authentification requise pour accéder aux données de cet établissement.',
+    };
+  }
+
+  const sessionMerchantId = session.merchantId;
+  if (!requestedMerchantIdOrSlug) {
+    return { ok: true, merchantId: sessionMerchantId, sessionEmail: session.email };
+  }
+
+  const cleanReq = requestedMerchantIdOrSlug.trim();
+  if (cleanReq === sessionMerchantId) {
+    return { ok: true, merchantId: sessionMerchantId, sessionEmail: session.email };
+  }
+
+  const sMerchant = await dbQueryOne<MerchantRow>(
+    'SELECT id, slug FROM merchants WHERE id = ?',
+    [sessionMerchantId]
+  );
+  if (sMerchant && (cleanReq === sMerchant.id || cleanReq === sMerchant.slug)) {
+    return { ok: true, merchantId: sessionMerchantId, sessionEmail: session.email };
+  }
+
+  return {
+    ok: false,
+    status: 403,
+    error: "Accès interdit : vous n'avez pas l'autorisation d'accéder aux données de cet établissement.",
+  };
+}
+
 async function internalHandleApiRequest(
   method: string,
   urlObj: URL,
@@ -355,66 +401,56 @@ async function internalHandleApiRequest(
     }
 
     /* ----------------------------------------------------------------------
-       GET /api/state — Full initial state strictly isolated per authenticated user
+       GET /api/state — Initial state scoped to the authenticated merchant
        ---------------------------------------------------------------------- */
     if (method === 'GET' && pathname === '/api/state') {
-      const session = getSessionFromHeaders(headers, urlObj);
-      if (!session) {
-        return {
-          status: 401,
-          data: {
-            ok: false,
-            error: 'Session non authentifiée. Veuillez vous connecter pour accéder à votre espace.',
-            commerces: [],
-            activeCommerce: null,
-            rewards: [],
-            customers: [],
-            transactions: [],
-            leads: [],
-          },
-        };
-      }
+      const requestedMerchant = urlObj.searchParams.get('merchant') || undefined;
+      const session = extractSessionUser(headers, urlObj);
 
-      // 1. Fetch ONLY merchants owned by this authenticated user
-      let userMerchants = await dbQueryAll<MerchantRow>(
-        'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC',
-        [session.userId]
-      );
-
-      // Backfill edge case: if existing merchant was created before owner_id migration
-      if (userMerchants.length === 0 && session.email) {
-        const matchingByEmail = await dbQueryAll<MerchantRow>(
-          'SELECT * FROM merchants WHERE LOWER(email) = LOWER(?)',
-          [session.email]
-        );
-        if (matchingByEmail.length > 0) {
-          for (const m of matchingByEmail) {
-            await dbRun('UPDATE merchants SET owner_id = ? WHERE id = ?', [session.userId, m.id]);
-          }
-          userMerchants = await dbQueryAll<MerchantRow>(
-            'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC',
-            [session.userId]
-          );
+      // Multi-tenant check: if session exists and requesting another merchant -> 403 Forbidden
+      if (session && requestedMerchant) {
+        const auth = await checkMerchantAuthorization(requestedMerchant, headers, urlObj);
+        if (!auth.ok) {
+          return {
+            status: auth.status,
+            data: {
+              ok: false,
+              error: auth.error,
+              erreur: {
+                code: auth.status === 403 ? 'acces_interdit' : 'non_authentifie',
+                message: auth.error,
+              },
+            },
+          };
         }
       }
 
-      if (userMerchants.length === 0) {
+      const targetMerchantId = session?.merchantId || requestedMerchant;
+      const activePair = await getMerchantWithProgram(targetMerchantId);
+
+      if (!activePair) {
         return {
           status: 200,
-          data: {
-            ok: true,
-            commerces: [],
-            activeCommerce: null,
-            rewards: [],
-            customers: [],
-            transactions: [],
-            leads: [],
-          },
+          data: { ok: true, commerces: [], activeCommerce: null, customers: [], transactions: [], leads: [] },
         };
       }
 
+      // Restrict commerces list to the user's own establishments
+      let allowedMerchants: MerchantRow[] = [];
+      if (session) {
+        const currentMerchant =
+          (await dbQueryOne<MerchantRow>('SELECT * FROM merchants WHERE id = ?', [session.merchantId])) ||
+          activePair.merchant;
+        allowedMerchants = await dbQueryAll<MerchantRow>(
+          'SELECT * FROM merchants WHERE id = ? OR LOWER(email) = LOWER(?) ORDER BY created_at ASC',
+          [currentMerchant.id, currentMerchant.email]
+        );
+      } else {
+        allowedMerchants = [activePair.merchant];
+      }
+
       const commerces = await Promise.all(
-        userMerchants.map(async (m) => {
+        allowedMerchants.map(async (m) => {
           const prog = await dbQueryOne<LoyaltyProgramRow>(
             'SELECT * FROM loyalty_programs WHERE merchant_id = ?',
             [m.id]
@@ -422,29 +458,6 @@ async function internalHandleApiRequest(
           return formatMerchantDTO(m, prog);
         })
       );
-
-      const requestedMerchant = urlObj.searchParams.get('merchant') || undefined;
-      let activePair: { merchant: MerchantRow; program: LoyaltyProgramRow } | null = null;
-      if (requestedMerchant) {
-        activePair = await getMerchantWithProgram(requestedMerchant, session.userId);
-      }
-      if (!activePair) {
-        activePair = await getMerchantWithProgram(userMerchants[0].id, session.userId);
-      }
-      if (!activePair) {
-        return {
-          status: 200,
-          data: {
-            ok: true,
-            commerces,
-            activeCommerce: null,
-            rewards: [],
-            customers: [],
-            transactions: [],
-            leads: [],
-          },
-        };
-      }
 
       const activeDto = formatMerchantDTO(activePair.merchant, activePair.program);
       const custRows = await dbQueryAll<CustomerRow>(
@@ -454,6 +467,9 @@ async function internalHandleApiRequest(
       const txRows = await dbQueryAll<TransactionRow>(
         'SELECT * FROM transactions WHERE merchant_id = ? ORDER BY created_at DESC',
         [activePair.merchant.id]
+      );
+      const leadRows = await dbQueryAll<Record<string, unknown>>(
+        'SELECT * FROM leads ORDER BY created_at DESC'
       );
 
       return {
@@ -465,100 +481,159 @@ async function internalHandleApiRequest(
           rewards: activeDto.rewards,
           customers: custRows.map(formatCustomerDTO),
           transactions: txRows.map(formatTransactionDTO),
-          leads: [],
+          leads: leadRows,
         },
       };
     }
 
     /* ----------------------------------------------------------------------
-       GET /api/merchants & POST /api/merchants (Multi-Store Point of Sale)
+       GET /api/customers : Liste sécurisée des clients d'un établissement
        ---------------------------------------------------------------------- */
-    if (pathname === '/api/merchants') {
-      const session = getSessionFromHeaders(headers, urlObj);
-      if (!session) {
-        return { status: 401, data: { ok: false, error: 'Session non authentifiée.' } };
-      }
+    if (method === 'GET' && pathname === '/api/customers') {
+      const requestedMerchant =
+        urlObj.searchParams.get('merchant_id') ||
+        urlObj.searchParams.get('merchantId') ||
+        urlObj.searchParams.get('merchant');
 
-      if (method === 'GET') {
-        const userMerchants = await dbQueryAll<MerchantRow>(
-          'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC',
-          [session.userId]
-        );
-        const dtos = await Promise.all(
-          userMerchants.map(async (m) => {
-            const prog = await dbQueryOne<LoyaltyProgramRow>(
-              'SELECT * FROM loyalty_programs WHERE merchant_id = ?',
-              [m.id]
-            );
-            return formatMerchantDTO(m, prog);
-          })
-        );
-        return { status: 200, data: { ok: true, commerces: dtos } };
-      }
-
-      if (method === 'POST') {
-        const { name, category, address, mode } = (body as any) || {};
-        if (!name || typeof name !== 'string') {
-          return { status: 400, data: { ok: false, error: 'Nom de l’établissement requis.' } };
-        }
-        const id = `com-${crypto.randomUUID().slice(0, 8)}`;
-        const slug = slugify(name);
-        const now = new Date().toISOString();
-
-        await dbRun(
-          `INSERT INTO merchants (
-            id, owner_id, name, slug, email, phone, password_hash, category, address,
-            card_bg_color, card_accent_color, card_cover_image, card_logo_image,
-            google_review_url, geo_notification_text, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            id,
-            session.userId,
-            name.trim(),
-            slug,
-            `${slug}@fidelio.local`,
-            '',
-            hashPassword(crypto.randomUUID()),
-            category || 'Commerce',
-            address || 'Alger',
-            '#1a1a1a',
-            '#f85b04',
-            '/landing/cartes/ongles.webp',
-            '/brand/logo-mark.png',
-            'https://search.google.com/local/writereview?placeid=',
-            `Bienvenue chez ${name.trim()} !`,
-            now,
-          ]
-        );
-
-        const progId = `prog-${id}`;
-        await dbRun(
-          `INSERT INTO loyalty_programs (
-            id, merchant_id, name, mode, points_per_dzd, stamps_per_visit, stamps_target,
-            welcome_bonus, referral_bonus, google_review_bonus, rewards_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            progId,
-            id,
-            `Programme ${name.trim()}`,
-            mode === 'points' ? 'points' : 'tampons',
-            1,
-            1,
-            10,
-            0,
-            0,
-            0,
-            '[]',
-            now,
-          ]
-        );
-
-        const pair = (await getMerchantWithProgram(id, session.userId))!;
+      const auth = await checkMerchantAuthorization(requestedMerchant, headers, urlObj);
+      if (!auth.ok) {
         return {
-          status: 201,
-          data: { ok: true, merchant: formatMerchantDTO(pair.merchant, pair.program) },
+          status: auth.status,
+          data: {
+            ok: false,
+            error: auth.error,
+            erreur: {
+              code: auth.status === 403 ? 'acces_interdit' : 'non_authentifie',
+              message: auth.error,
+            },
+          },
         };
       }
+
+      const custRows = await dbQueryAll<CustomerRow>(
+        'SELECT * FROM customers WHERE merchant_id = ? ORDER BY created_at DESC',
+        [auth.merchantId]
+      );
+
+      return {
+        status: 200,
+        data: {
+          ok: true,
+          merchant_id: auth.merchantId,
+          total: custRows.length,
+          customers: custRows.map(formatCustomerDTO),
+        },
+      };
+    }
+
+    /* ----------------------------------------------------------------------
+       GET /api/dashboard : Métriques et données sécurisées du tableau de bord
+       ---------------------------------------------------------------------- */
+    if (method === 'GET' && pathname === '/api/dashboard') {
+      const requestedMerchant =
+        urlObj.searchParams.get('merchant_id') ||
+        urlObj.searchParams.get('merchantId') ||
+        urlObj.searchParams.get('merchant');
+
+      const auth = await checkMerchantAuthorization(requestedMerchant, headers, urlObj);
+      if (!auth.ok) {
+        return {
+          status: auth.status,
+          data: {
+            ok: false,
+            error: auth.error,
+            erreur: {
+              code: auth.status === 403 ? 'acces_interdit' : 'non_authentifie',
+              message: auth.error,
+            },
+          },
+        };
+      }
+
+      const pair = await getMerchantWithProgram(auth.merchantId);
+      if (!pair) {
+        return {
+          status: 404,
+          data: { ok: false, error: 'Établissement introuvable.' },
+        };
+      }
+
+      const custRows = await dbQueryAll<CustomerRow>(
+        'SELECT * FROM customers WHERE merchant_id = ? ORDER BY created_at DESC',
+        [auth.merchantId]
+      );
+      const txRows = await dbQueryAll<TransactionRow>(
+        'SELECT * FROM transactions WHERE merchant_id = ? ORDER BY created_at DESC',
+        [auth.merchantId]
+      );
+
+      const totalCustomers = custRows.length;
+      const nowMs = Date.now();
+      const visits30Days = txRows.filter((t) => {
+        const diffDays = (nowMs - new Date(t.created_at).getTime()) / (1000 * 3600 * 24);
+        return diffDays <= 30;
+      }).length;
+      const returningCustomers = custRows.filter((c) => c.visits >= 2).length;
+      const retentionRate = totalCustomers > 0 ? Math.round((returningCustomers / totalCustomers) * 100) : 0;
+      const totalRevenueDzd = txRows.reduce((acc, t) => acc + (t.amount_dzd || 0), 0);
+
+      return {
+        status: 200,
+        data: {
+          ok: true,
+          merchant_id: auth.merchantId,
+          merchant: formatMerchantDTO(pair.merchant, pair.program),
+          metrics: {
+            totalCustomers,
+            visits30Days,
+            retentionRate,
+            totalRevenueDzd,
+            totalTransactions: txRows.length,
+          },
+          customers: custRows.map(formatCustomerDTO),
+          transactions: txRows.slice(0, 50).map(formatTransactionDTO),
+        },
+      };
+    }
+
+    /* ----------------------------------------------------------------------
+       GET /api/transactions : Historique sécurisé des transactions
+       ---------------------------------------------------------------------- */
+    if (method === 'GET' && pathname === '/api/transactions') {
+      const requestedMerchant =
+        urlObj.searchParams.get('merchant_id') ||
+        urlObj.searchParams.get('merchantId') ||
+        urlObj.searchParams.get('merchant');
+
+      const auth = await checkMerchantAuthorization(requestedMerchant, headers, urlObj);
+      if (!auth.ok) {
+        return {
+          status: auth.status,
+          data: {
+            ok: false,
+            error: auth.error,
+            erreur: {
+              code: auth.status === 403 ? 'acces_interdit' : 'non_authentifie',
+              message: auth.error,
+            },
+          },
+        };
+      }
+
+      const txRows = await dbQueryAll<TransactionRow>(
+        'SELECT * FROM transactions WHERE merchant_id = ? ORDER BY created_at DESC',
+        [auth.merchantId]
+      );
+
+      return {
+        status: 200,
+        data: {
+          ok: true,
+          merchant_id: auth.merchantId,
+          total: txRows.length,
+          transactions: txRows.map(formatTransactionDTO),
+        },
+      };
     }
 
     /* ----------------------------------------------------------------------
@@ -623,7 +698,7 @@ async function internalHandleApiRequest(
     }
 
     /* ----------------------------------------------------------------------
-       FLUX B : POST /api/auth/register, POST /api/auth/login, POST /api/auth/google
+       FLUX B : POST /api/auth/register & POST /api/auth/login
        ---------------------------------------------------------------------- */
     if (method === 'POST' && pathname === '/api/auth/register') {
       const parsed = RegisterMerchantSchema.safeParse(body);
@@ -639,51 +714,34 @@ async function internalHandleApiRequest(
       }
 
       const d = parsed.data;
-      const cleanEmail = d.email.trim().toLowerCase();
-
-      // Check if email already exists in users or merchants
-      const existingUser = await dbQueryOne<UserRow>(
-        'SELECT id FROM users WHERE LOWER(email) = LOWER(?)',
-        [cleanEmail]
-      );
-      const existingMerchant = await dbQueryOne<MerchantRow>(
+      const existingEmail = await dbQueryOne<{ id: string }>(
         'SELECT id FROM merchants WHERE LOWER(email) = LOWER(?)',
-        [cleanEmail]
+        [d.email]
       );
 
-      if (existingUser || existingMerchant) {
+      if (existingEmail) {
         return {
           status: 409,
           data: { ok: false, error: 'Un compte commerçant existe déjà avec cette adresse email.' },
         };
       }
 
-      const userId = `usr-${crypto.randomUUID().slice(0, 8)}`;
-      const merchantId = `com-${crypto.randomUUID().slice(0, 8)}`;
+      const id = `com-${crypto.randomUUID().slice(0, 8)}`;
       const slug = slugify(d.name);
       const now = new Date().toISOString();
       const passwordHash = hashPassword(d.password);
 
-      // 1. Create User account
-      await dbRun(
-        `INSERT INTO users (id, email, password_hash, name, phone, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, cleanEmail, passwordHash, d.name.trim(), d.phone.trim(), now]
-      );
-
-      // 2. Create primary Merchant establishment owned by this user
       await dbRun(
         `INSERT INTO merchants (
-          id, owner_id, name, slug, email, phone, password_hash, category, address,
+          id, name, slug, email, phone, password_hash, category, address,
           card_bg_color, card_accent_color, card_cover_image, card_logo_image,
           google_review_url, geo_notification_text, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          merchantId,
-          userId,
+          id,
           d.name,
           slug,
-          cleanEmail,
+          d.email.toLowerCase(),
           d.phone,
           passwordHash,
           d.category,
@@ -717,7 +775,7 @@ async function internalHandleApiRequest(
         },
       ];
 
-      const progId = `prog-${merchantId}`;
+      const progId = `prog-${id}`;
       await dbRun(
         `INSERT INTO loyalty_programs (
           id, merchant_id, name, mode, points_per_dzd, stamps_per_visit, stamps_target,
@@ -725,7 +783,7 @@ async function internalHandleApiRequest(
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           progId,
-          merchantId,
+          id,
           `Programme ${d.name}`,
           d.mode,
           1,
@@ -739,19 +797,13 @@ async function internalHandleApiRequest(
         ]
       );
 
-      const pair = (await getMerchantWithProgram(merchantId, userId))!;
-      const token = createAuthToken({
-        userId,
-        email: cleanEmail,
-        name: d.name.trim(),
-      });
-
+      const pair = (await getMerchantWithProgram(id))!;
+      const token = createSessionToken(pair.merchant.id, pair.merchant.email);
       return {
         status: 201,
         data: {
           ok: true,
           token,
-          user: { id: userId, email: cleanEmail, name: d.name.trim() },
           merchant: formatMerchantDTO(pair.merchant, pair.program),
         },
       };
@@ -770,32 +822,12 @@ async function internalHandleApiRequest(
       }
 
       const d = parsed.data;
-      const cleanEmail = d.email.trim().toLowerCase();
-
-      // Find user
-      let user = await dbQueryOne<UserRow>(
-        'SELECT * FROM users WHERE LOWER(email) = LOWER(?)',
-        [cleanEmail]
+      const merchant = await dbQueryOne<MerchantRow>(
+        'SELECT * FROM merchants WHERE LOWER(email) = LOWER(?)',
+        [d.email]
       );
 
-      // Backfill from merchant if user registered prior to users table
-      if (!user) {
-        const legacyMerchant = await dbQueryOne<MerchantRow>(
-          'SELECT * FROM merchants WHERE LOWER(email) = LOWER(?)',
-          [cleanEmail]
-        );
-        if (legacyMerchant) {
-          const legacyUserId = `usr-${legacyMerchant.id.replace('com-', '')}`;
-          await dbRun(
-            'INSERT OR IGNORE INTO users (id, email, password_hash, name, phone, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [legacyUserId, cleanEmail, legacyMerchant.password_hash, legacyMerchant.name, legacyMerchant.phone, legacyMerchant.created_at]
-          );
-          await dbRun('UPDATE merchants SET owner_id = ? WHERE id = ?', [legacyUserId, legacyMerchant.id]);
-          user = (await dbQueryOne<UserRow>('SELECT * FROM users WHERE id = ?', [legacyUserId]))!;
-        }
-      }
-
-      if (!user) {
+      if (!merchant) {
         return {
           status: 401,
           data: { ok: false, error: 'Aucun compte trouvé avec cette adresse email.' },
@@ -803,46 +835,28 @@ async function internalHandleApiRequest(
       }
 
       const expectedHash = hashPassword(d.password);
-      if (user.password_hash !== expectedHash) {
+      if (merchant.password_hash !== expectedHash) {
         return {
           status: 401,
           data: { ok: false, error: 'Mot de passe incorrect.' },
         };
       }
 
-      let userMerchants = await dbQueryAll<MerchantRow>(
-        'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC',
-        [user.id]
-      );
-
-      if (userMerchants.length === 0) {
-        // Link any unassigned merchant matching email
-        await dbRun('UPDATE merchants SET owner_id = ? WHERE LOWER(email) = LOWER(?)', [user.id, cleanEmail]);
-        userMerchants = await dbQueryAll<MerchantRow>(
-          'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC',
-          [user.id]
-        );
-      }
-
-      const primaryMerchant = userMerchants[0];
-      const pair = primaryMerchant ? await getMerchantWithProgram(primaryMerchant.id, user.id) : null;
-      const token = createAuthToken({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-      });
-
+      const pair = (await getMerchantWithProgram(merchant.id))!;
+      const token = createSessionToken(pair.merchant.id, pair.merchant.email);
       return {
         status: 200,
         data: {
           ok: true,
           token,
-          user: { id: user.id, email: user.email, name: user.name },
-          merchant: pair ? formatMerchantDTO(pair.merchant, pair.program) : null,
+          merchant: formatMerchantDTO(pair.merchant, pair.program),
         },
       };
     }
 
+    /* ----------------------------------------------------------------------
+       POST /api/auth/google : Connexion & Inscription via Google OAuth (Firebase)
+       ---------------------------------------------------------------------- */
     if (method === 'POST' && pathname === '/api/auth/google') {
       const { email, name, googleId, photoURL } = (body as any) || {};
       if (!email || typeof email !== 'string') {
@@ -853,119 +867,95 @@ async function internalHandleApiRequest(
       }
 
       const cleanEmail = email.trim().toLowerCase();
-      let user = await dbQueryOne<UserRow>(
-        'SELECT * FROM users WHERE LOWER(email) = LOWER(?)',
+      let merchant = await dbQueryOne<MerchantRow>(
+        'SELECT * FROM merchants WHERE LOWER(email) = ?',
         [cleanEmail]
       );
 
-      const now = new Date().toISOString();
-      if (!user) {
-        const userId = `usr-${crypto.randomUUID().slice(0, 8)}`;
-        const userName = name?.trim() || cleanEmail.split('@')[0] || 'Commerçant Fidelio';
+      if (!merchant) {
+        // Automatically create account for Google user
+        const merchantId = `com-${crypto.randomUUID().slice(0, 8)}`;
+        const baseName = name?.trim() || cleanEmail.split('@')[0] || 'Mon Commerce';
+        const baseSlug = slugify(baseName) || 'commerce';
+        const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 4)}`;
+        const now = new Date().toISOString();
+
         await dbRun(
-          'INSERT INTO users (id, email, password_hash, name, phone, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-          [userId, cleanEmail, hashPassword(`google_${googleId || 'oauth'}_${Date.now()}`), userName, '', now]
+          `INSERT INTO merchants (
+            id, name, slug, email, phone, password_hash, category, address,
+            card_bg_color, card_accent_color, card_cover_image, card_logo_image,
+            google_review_url, geo_notification_text, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            merchantId,
+            baseName,
+            slug,
+            cleanEmail,
+            '+213 5 00 00 00 00',
+            hashPassword(`google_${googleId || 'oauth'}_${Date.now()}`),
+            'Commerce',
+            'Alger',
+            '#1a1a1a',
+            '#f85b04',
+            '/landing/cartes/ongles.webp',
+            photoURL || '/brand/logo-mark.png',
+            'https://search.google.com/local/writereview?placeid=',
+            `Bienvenue chez ${baseName} ✨`,
+            now,
+          ]
         );
-        user = (await dbQueryOne<UserRow>('SELECT * FROM users WHERE id = ?', [userId]))!;
+
+        await dbRun(
+          `INSERT INTO loyalty_programs (
+            id, merchant_id, name, mode, points_per_dzd, stamps_per_visit, stamps_target,
+            welcome_bonus, referral_bonus, google_review_bonus, rewards_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            `prog-${crypto.randomUUID().slice(0, 8)}`,
+            merchantId,
+            `Programme Fidélité ${baseName}`,
+            'tampons',
+            1,
+            1,
+            10,
+            0,
+            0,
+            0,
+            JSON.stringify([
+              {
+                id: `rew-${Date.now()}-1`,
+                title: 'Café ou Boisson offerte',
+                cost: 5,
+                description: 'Dès 5 tampons validés',
+                category: 'Boisson',
+                redemptions: 0,
+              },
+              {
+                id: `rew-${Date.now()}-2`,
+                title: 'Cadeau ou Remise 20%',
+                cost: 10,
+                description: 'Votre 10ème passage récompensé',
+                category: 'Cadeau',
+                redemptions: 0,
+              },
+            ]),
+            now,
+          ]
+        );
+
+        merchant = (await dbQueryOne<MerchantRow>(
+          'SELECT * FROM merchants WHERE id = ?',
+          [merchantId]
+        ))!;
       }
 
-      let userMerchants = await dbQueryAll<MerchantRow>(
-        'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC',
-        [user.id]
-      );
-
-      if (userMerchants.length === 0) {
-        // Check if legacy merchant exists with this email
-        const legacy = await dbQueryOne<MerchantRow>(
-          'SELECT * FROM merchants WHERE LOWER(email) = LOWER(?)',
-          [cleanEmail]
-        );
-        if (legacy) {
-          await dbRun('UPDATE merchants SET owner_id = ? WHERE id = ?', [user.id, legacy.id]);
-        } else {
-          // Create new establishment for this Google user
-          const merchantId = `com-${crypto.randomUUID().slice(0, 8)}`;
-          const baseName = user.name || 'Mon Commerce';
-          const baseSlug = slugify(baseName) || 'commerce';
-          const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 4)}`;
-
-          await dbRun(
-            `INSERT INTO merchants (
-              id, owner_id, name, slug, email, phone, password_hash, category, address,
-              card_bg_color, card_accent_color, card_cover_image, card_logo_image,
-              google_review_url, geo_notification_text, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              merchantId,
-              user.id,
-              baseName,
-              slug,
-              cleanEmail,
-              '+213 5 00 00 00 00',
-              hashPassword(`google_${googleId || 'oauth'}`),
-              'Commerce',
-              'Alger',
-              '#1a1a1a',
-              '#f85b04',
-              '/landing/cartes/ongles.webp',
-              photoURL || '/brand/logo-mark.png',
-              'https://search.google.com/local/writereview?placeid=',
-              `Bienvenue chez ${baseName} ✨`,
-              now,
-            ]
-          );
-
-          await dbRun(
-            `INSERT INTO loyalty_programs (
-              id, merchant_id, name, mode, points_per_dzd, stamps_per_visit, stamps_target,
-              welcome_bonus, referral_bonus, google_review_bonus, rewards_json, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              `prog-${crypto.randomUUID().slice(0, 8)}`,
-              merchantId,
-              `Programme Fidélité ${baseName}`,
-              'tampons',
-              1,
-              1,
-              10,
-              0,
-              0,
-              0,
-              JSON.stringify([
-                {
-                  id: `rew-${Date.now()}-1`,
-                  title: 'Café ou Boisson offerte',
-                  cost: 5,
-                  description: 'Dès 5 tampons validés',
-                  category: 'Boisson',
-                  redemptions: 0,
-                },
-              ]),
-              now,
-            ]
-          );
-        }
-
-        userMerchants = await dbQueryAll<MerchantRow>(
-          'SELECT * FROM merchants WHERE owner_id = ? ORDER BY created_at ASC',
-          [user.id]
-        );
-      }
-
-      const activeMerchant = userMerchants[0];
-      const pair = (await getMerchantWithProgram(activeMerchant.id, user.id))!;
-      const token = createAuthToken({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-      });
-
+      const pair = (await getMerchantWithProgram(merchant.id))!;
+      const token = createSessionToken(pair.merchant.id, pair.merchant.email);
       return {
         status: 200,
         data: {
           ok: true,
           token,
-          user: { id: user.id, email: user.email, name: user.name },
           merchant: formatMerchantDTO(pair.merchant, pair.program),
         },
       };
@@ -977,27 +967,23 @@ async function internalHandleApiRequest(
     const merchantProgramMatch = pathname.match(/^\/api\/merchants\/([^/]+)\/program$/);
     if (merchantProgramMatch && (method === 'PUT' || method === 'POST')) {
       const merchantIdOrSlug = decodeURIComponent(merchantProgramMatch[1]);
-      const session = getSessionFromHeaders(headers, urlObj);
-      if (!session) {
+      const auth = await checkMerchantAuthorization(merchantIdOrSlug, headers, urlObj);
+      if (!auth.ok) {
         return {
-          status: 401,
-          data: { ok: false, error: 'Session non authentifiée. Veuillez vous connecter.' },
-        };
-      }
-
-      const pair = await getMerchantWithProgram(merchantIdOrSlug);
-      if (!pair) {
-        return { status: 404, data: { ok: false, error: 'Commerce introuvable.' } };
-      }
-
-      if (pair.merchant.owner_id && pair.merchant.owner_id !== session.userId) {
-        return {
-          status: 403,
+          status: auth.status,
           data: {
             ok: false,
-            error: 'Accès interdit : cet établissement ne vous appartient pas.',
+            error: auth.error,
+            erreur: {
+              code: auth.status === 403 ? 'acces_interdit' : 'non_authentifie',
+              message: auth.error,
+            },
           },
         };
+      }
+      const pair = await getMerchantWithProgram(auth.merchantId);
+      if (!pair) {
+        return { status: 404, data: { ok: false, error: 'Commerce introuvable.' } };
       }
 
       const parsed = UpdateProgramSchema.safeParse(body);
@@ -1092,16 +1078,9 @@ async function internalHandleApiRequest(
     const merchantGetMatch = pathname.match(/^\/api\/merchants\/([^/]+)$/);
     if (merchantGetMatch && method === 'GET') {
       const idOrSlug = decodeURIComponent(merchantGetMatch[1]);
-      const session = getSessionFromHeaders(headers, urlObj);
       const pair = await getMerchantWithProgram(idOrSlug);
       if (!pair) {
         return { status: 404, data: { ok: false, error: 'Commerce introuvable.' } };
-      }
-      if (session && pair.merchant.owner_id && pair.merchant.owner_id !== session.userId) {
-        return {
-          status: 403,
-          data: { ok: false, error: 'Accès interdit : cet établissement ne vous appartient pas.' },
-        };
       }
       const dto = formatMerchantDTO(pair.merchant, pair.program);
       const custRows = await dbQueryAll<CustomerRow>(
@@ -1121,25 +1100,6 @@ async function internalHandleApiRequest(
           rewards: dto.rewards,
           customers: custRows.map(formatCustomerDTO),
           transactions: txRows.map(formatTransactionDTO),
-        },
-      };
-    }
-
-    /* ----------------------------------------------------------------------
-       GET /api/join/:slug — Public Customer Onboarding Info
-       ---------------------------------------------------------------------- */
-    const joinGetMatch = pathname.match(/^\/api\/join\/([^/]+)$/);
-    if (joinGetMatch && method === 'GET') {
-      const slug = decodeURIComponent(joinGetMatch[1]);
-      const pair = await getMerchantWithProgram(slug);
-      if (!pair) {
-        return { status: 404, data: { ok: false, error: 'Établissement introuvable.' } };
-      }
-      return {
-        status: 200,
-        data: {
-          ok: true,
-          merchant: formatMerchantDTO(pair.merchant, pair.program),
         },
       };
     }
@@ -1395,39 +1355,6 @@ async function internalHandleApiRequest(
             },
           },
         };
-      }
-
-      // Multi-tenant Security: Ensure session user owns the target merchant and customer
-      const session = getSessionFromHeaders(headers, urlObj);
-      if (session) {
-        if (d.merchantId) {
-          const targetMerchant = await dbQueryOne<MerchantRow>(
-            'SELECT owner_id FROM merchants WHERE id = ? OR slug = ?',
-            [d.merchantId, d.merchantId]
-          );
-          if (targetMerchant?.owner_id && targetMerchant.owner_id !== session.userId) {
-            return {
-              status: 403,
-              data: {
-                ok: false,
-                error: 'Accès interdit : vous ne pouvez pas scanner pour cet établissement.',
-              },
-            };
-          }
-        }
-        const custOwner = await dbQueryOne<MerchantRow>(
-          'SELECT owner_id FROM merchants WHERE id = ?',
-          [customerRow.merchant_id]
-        );
-        if (custOwner?.owner_id && custOwner.owner_id !== session.userId) {
-          return {
-            status: 403,
-            data: {
-              ok: false,
-              error: 'Accès interdit : cette carte client appartient à un autre établissement.',
-            },
-          };
-        }
       }
 
       // Check idempotency if reference is provided

@@ -211,6 +211,7 @@ async function runFullSystemCheck() {
     // ------------------------------------------------------------------------
     // 6. POST /api/auth/login (connexion valide)
     // ------------------------------------------------------------------------
+    let sessionToken = '';
     await recordTest('Auth', 'POST /api/auth/login (Connexion mot de passe correct)', async () => {
       const payload = {
         email: regEmail,
@@ -222,12 +223,15 @@ async function runFullSystemCheck() {
         body: JSON.stringify(payload),
       });
       const json = await res.json() as any;
-      const passed = res.status === 200 && json.ok === true && Boolean(json.merchant?.id);
+      const passed = res.status === 200 && json.ok === true && Boolean(json.token);
+      if (passed) {
+        sessionToken = json.token;
+      }
       return {
         passed,
         statusReceived: res.status,
         expectedStatus: 200,
-        details: `Connexion réussie, Commerçant authentifié : ID=${json.merchant?.id}, Nom=${json.merchant?.name}`,
+        details: `Connexion réussie, Token de session émis : ${sessionToken.slice(0, 20)}... ID=${json.merchant?.id}`,
       };
     });
 
@@ -383,7 +387,87 @@ async function runFullSystemCheck() {
     });
 
     // ------------------------------------------------------------------------
-    // 12. TypeScript Type Check (tsc --noEmit)
+    // 12. SÉCURITÉ : Tentative d'accès non-authentifié -> 401 Unauthorized
+    // ------------------------------------------------------------------------
+    await recordTest('Sécurité [Auth]', 'GET /api/customers & /api/dashboard sans session (Attendu 401)', async () => {
+      const resCust = await fetch(`${baseUrl}/api/customers`);
+      const resDash = await fetch(`${baseUrl}/api/dashboard`);
+      const resTx = await fetch(`${baseUrl}/api/transactions`);
+
+      const passed = resCust.status === 401 && resDash.status === 401 && resTx.status === 401;
+      return {
+        passed,
+        statusReceived: resCust.status,
+        expectedStatus: 401,
+        details: `Toutes les routes protégées bloquent l'accès anonyme (HTTP ${resCust.status}, ${resDash.status}, ${resTx.status})`,
+      };
+    });
+
+    // ------------------------------------------------------------------------
+    // 13. SÉCURITÉ : Accès autorisé à ses propres données avec Token de Session -> 200 OK
+    // ------------------------------------------------------------------------
+    await recordTest('Sécurité [Session]', 'GET /api/customers & /api/dashboard (Propre établissement -> 200)', async () => {
+      const headers = { Authorization: `Bearer ${sessionToken}` };
+      const resCust = await fetch(`${baseUrl}/api/customers?merchant_id=${merchantId}`, { headers });
+      const resDash = await fetch(`${baseUrl}/api/dashboard?merchant_id=${merchantId}`, { headers });
+      const resTx = await fetch(`${baseUrl}/api/transactions?merchant_id=${merchantId}`, { headers });
+
+      const jsonCust = (await resCust.json()) as any;
+      const jsonDash = (await resDash.json()) as any;
+      const jsonTx = (await resTx.json()) as any;
+
+      const passed =
+        resCust.status === 200 &&
+        resDash.status === 200 &&
+        resTx.status === 200 &&
+        jsonCust.ok === true &&
+        jsonDash.ok === true &&
+        jsonTx.ok === true;
+
+      return {
+        passed,
+        statusReceived: 200,
+        expectedStatus: 200,
+        details: `Accès propriétaire validé : ${jsonCust.total} clients, ${jsonTx.total} transactions, CA=${jsonDash.metrics?.totalRevenueDzd} DZD`,
+      };
+    });
+
+    // ------------------------------------------------------------------------
+    // 14. SÉCURITÉ : Isolation multi-tenant (Accès aux données d'un autre commerce -> 403 Forbidden)
+    // ------------------------------------------------------------------------
+    await recordTest('Sécurité [Isolation]', 'Tentative d’espionnage autre commerce (?merchant_id=com-1 -> 403 Forbidden)', async () => {
+      const headers = { Authorization: `Bearer ${sessionToken}` };
+      // User is logged in as merchantId (Boulangerie Tradition), tries to access 'com-1' (Gourmand)
+      const resCust = await fetch(`${baseUrl}/api/customers?merchant_id=com-1`, { headers });
+      const resDash = await fetch(`${baseUrl}/api/dashboard?merchant_id=com-1`, { headers });
+      const resTx = await fetch(`${baseUrl}/api/transactions?merchant_id=com-1`, { headers });
+      const resState = await fetch(`${baseUrl}/api/state?merchant=com-1`, { headers });
+
+      const jsonCust = (await resCust.json()) as any;
+      const jsonDash = (await resDash.json()) as any;
+      const jsonTx = (await resTx.json()) as any;
+      const jsonState = (await resState.json()) as any;
+
+      const allForbidden =
+        resCust.status === 403 &&
+        resDash.status === 403 &&
+        resTx.status === 403 &&
+        resState.status === 403 &&
+        jsonCust.ok === false &&
+        jsonDash.ok === false &&
+        jsonTx.ok === false &&
+        jsonState.ok === false;
+
+      return {
+        passed: allForbidden,
+        statusReceived: resCust.status,
+        expectedStatus: 403,
+        details: `Toutes les tentatives d'accès aux données tierces ont été bloquées avec succès en HTTP 403 Forbidden. Message : "${jsonCust.error}"`,
+      };
+    });
+
+    // ------------------------------------------------------------------------
+    // 15. TypeScript Type Check (tsc --noEmit)
     // ------------------------------------------------------------------------
     await recordTest('Qualité Code', 'Vérification du typage TypeScript (tsc -b)', async () => {
       try {
