@@ -11,6 +11,7 @@ import {
   Check,
   QrCode,
   ScanLine,
+  Bell,
 } from 'lucide-react';
 import { useStore, type Customer, type CommerceSettings, type RewardTier } from '../context/StoreContext';
 import { BrandLogo, StickerBadge, WalletPassCard } from '../components/BrandLogo';
@@ -46,6 +47,7 @@ export const CustomerCardPublicPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [walletNotice, setWalletNotice] = useState<string | null>(null);
+  const [latestNotif, setLatestNotif] = useState<{ title: string; message: string; targetUrl?: string } | null>(null);
 
   // 1. Fetch merchant details by slug
   useEffect(() => {
@@ -59,6 +61,22 @@ export const CustomerCardPublicPage: React.FC = () => {
         if (json.ok && json.merchant) {
           setRemoteShop(json.merchant);
           setRemoteRewards(Array.isArray(json.rewards) ? json.rewards : []);
+          // Fetch latest notification from this merchant
+          if (json.merchant.id) {
+            fetch(`/api/notifications?merchantId=${encodeURIComponent(json.merchant.id)}`)
+              .then((nr) => nr.json())
+              .then((njson) => {
+                if (!cancelled && njson.ok && Array.isArray(njson.notifications) && njson.notifications.length > 0) {
+                  const first = njson.notifications[0];
+                  setLatestNotif({
+                    title: first.title,
+                    message: first.message,
+                    targetUrl: first.target_url,
+                  });
+                }
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch(() => {})
@@ -208,6 +226,28 @@ export const CustomerCardPublicPage: React.FC = () => {
           </form>
         ) : (
           <>
+            {latestNotif && (
+              <div className="w-full mb-3 rounded-2xl border-2 border-coral/30 bg-coral/10 p-3.5 shadow-sm text-ink animate-in fade-in slide-in-from-top duration-300">
+                <div className="flex items-center gap-2 text-xs font-bold text-coral mb-1">
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Notification de {shop.name}</span>
+                </div>
+                <div className="text-xs font-bold text-ink">{latestNotif.title}</div>
+                {latestNotif.message && latestNotif.message !== latestNotif.title && (
+                  <div className="text-[11px] text-ink/75 mt-0.5 leading-snug">{latestNotif.message}</div>
+                )}
+                {latestNotif.targetUrl && (
+                  <a
+                    href={latestNotif.targetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block mt-2 text-[11px] font-bold text-coral underline underline-offset-2 hover:text-coral-dark"
+                  >
+                    Voir l'offre →
+                  </a>
+                )}
+              </div>
+            )}
             <div className="flex flex-col items-center">
               <WalletPassCard
                 shopName={shop.name}

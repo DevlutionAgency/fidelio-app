@@ -470,6 +470,10 @@ async function internalHandleApiRequest(
         'SELECT * FROM transactions WHERE merchant_id = ? ORDER BY created_at DESC',
         [activePair.merchant.id]
       );
+      const notifRows = await dbQueryAll<Record<string, unknown>>(
+        'SELECT * FROM notifications WHERE merchant_id = ? ORDER BY sent_at DESC LIMIT 20',
+        [activePair.merchant.id]
+      );
       const leadRows = await dbQueryAll<Record<string, unknown>>(
         'SELECT * FROM leads ORDER BY created_at DESC'
       );
@@ -483,6 +487,7 @@ async function internalHandleApiRequest(
           rewards: activeDto.rewards,
           customers: custRows.map(formatCustomerDTO),
           transactions: txRows.map(formatTransactionDTO),
+          notifications: notifRows,
           leads: leadRows,
         },
       };
@@ -1045,6 +1050,65 @@ async function internalHandleApiRequest(
         auth.merchantId,
       ]);
       return { status: 200, data: { ok: true } };
+    }
+
+    /* ----------------------------------------------------------------------
+       FLUX NOTIFICATIONS : GET /api/notifications & POST /api/notifications
+       ---------------------------------------------------------------------- */
+    if (method === 'GET' && pathname === '/api/notifications') {
+      const merchantIdParam = urlObj.searchParams.get('merchantId') || urlObj.searchParams.get('merchant');
+      let targetMerchantId = merchantIdParam;
+
+      if (!targetMerchantId) {
+        const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+        if (!auth.ok) return { status: auth.status, data: { ok: false, error: auth.error } };
+        targetMerchantId = auth.merchantId;
+      }
+
+      const rows = await dbQueryAll<Record<string, unknown>>(
+        'SELECT * FROM notifications WHERE merchant_id = ? ORDER BY sent_at DESC LIMIT 20',
+        [targetMerchantId]
+      );
+      return { status: 200, data: { ok: true, notifications: rows } };
+    }
+
+    if (method === 'POST' && pathname === '/api/notifications') {
+      const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+      if (!auth.ok) return { status: auth.status, data: { ok: false, error: auth.error } };
+
+      const { title, message, targetUrl } = (body as any) || {};
+      const cleanTitle = String(title || message || '').trim();
+      const cleanMsg = String(message || title || '').trim();
+
+      if (!cleanTitle && !cleanMsg) {
+        return {
+          status: 400,
+          data: { ok: false, error: 'Le titre ou le message de la notification est requis.' },
+        };
+      }
+
+      const id = `notif-${crypto.randomUUID().slice(0, 8)}`;
+      const now = new Date().toISOString();
+
+      await dbRun(
+        'INSERT INTO notifications (id, merchant_id, title, message, target_url, sent_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, auth.merchantId, cleanTitle, cleanMsg, targetUrl ? String(targetUrl).trim() : null, now]
+      );
+
+      return {
+        status: 201,
+        data: {
+          ok: true,
+          notification: {
+            id,
+            merchant_id: auth.merchantId,
+            title: cleanTitle,
+            message: cleanMsg,
+            target_url: targetUrl || null,
+            sent_at: now,
+          },
+        },
+      };
     }
 
     /* ----------------------------------------------------------------------

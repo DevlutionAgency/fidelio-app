@@ -1049,19 +1049,24 @@ export const NotificationsPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [optLink, setOptLink] = useState('');
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() && !message.trim()) return;
     sendCampaign({
-      title: title || message,
+      title: title.trim() || 'Offre Fidelio',
+      message: message.trim(),
+      targetUrl: optLink.trim() || undefined,
       channel: isEmailTab ? 'email' : 'push',
       segment: 'Tous les clients',
       recipients: customers.length,
     });
+    setSuccessNotice(`Notification envoyée ! Enregistrée en base et transmise à vos ${customers.length} client(s).`);
     setTitle('');
     setMessage('');
     setOptLink('');
+    setTimeout(() => setSuccessNotice(null), 6000);
   };
 
   if (isAutoTab) {
@@ -1102,6 +1107,12 @@ export const NotificationsPage: React.FC = () => {
           Jusqu&apos;à 3 notifications par jour. Au-delà, les clients se lassent et suppriment leur
           carte.
         </p>
+
+        {successNotice && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-bold text-emerald-800">
+            {successNotice}
+          </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-1">

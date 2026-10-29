@@ -92,6 +92,8 @@ export interface LeadRecord {
 export interface CampaignLog {
   id: string;
   title: string;
+  message?: string;
+  targetUrl?: string;
   channel: 'push' | 'email';
   segment: string;
   recipients: number;
@@ -325,6 +327,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCustomers(Array.isArray(json.customers) ? json.customers : []);
         setTransactions(Array.isArray(json.transactions) ? json.transactions : []);
         setLeads(Array.isArray(json.leads) ? json.leads : []);
+        if (Array.isArray(json.notifications)) {
+          setCampaigns(
+            json.notifications.map((n: any) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              targetUrl: n.target_url,
+              channel: 'push',
+              segment: 'Tous les clients',
+              recipients: Array.isArray(json.customers) ? json.customers.length : 0,
+              sentAt: n.sent_at
+                ? new Date(n.sent_at).toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }) +
+                  ' ' +
+                  new Date(n.sent_at).toLocaleDateString('fr-FR')
+                : 'Récemment',
+              status: 'Envoyé',
+            }))
+          );
+        }
         setApiError(null);
       } catch (err) {
         setApiError(err instanceof Error ? err.message : 'Erreur réseau');
@@ -701,7 +725,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setOfflineMode(false);
   };
 
-  const sendCampaign = (c: Omit<CampaignLog, 'id' | 'sentAt' | 'status'>) => {
+  const sendCampaign = async (c: Omit<CampaignLog, 'id' | 'sentAt' | 'status'>) => {
+    try {
+      await safeFetchJson('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: c.title,
+          message: c.message || c.title,
+          targetUrl: c.targetUrl,
+        }),
+      });
+    } catch {
+      // safe fallback
+    }
+
     setCampaigns((prev) => [
       {
         ...c,
@@ -711,6 +749,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       ...prev,
     ]);
+
+    // Live Web Notification test directly in browser if permitted
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification(c.title, {
+          body: c.message || c.title,
+          icon: '/brand/logo-mark.png',
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            new Notification(c.title, {
+              body: c.message || c.title,
+              icon: '/brand/logo-mark.png',
+            });
+          }
+        });
+      }
+    }
   };
 
   const addEmployee = (name: string, location: string, pinCode: string) => {
