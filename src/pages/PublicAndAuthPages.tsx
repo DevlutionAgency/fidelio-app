@@ -21,7 +21,7 @@ import { BrandLogo, StickerBadge, WalletPassCard } from '../components/BrandLogo
 export const CustomerCardPublicPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
-  const { commerces, rewards, customers, addCustomer, claimGoogleReview } = useStore();
+  const { commerces, rewards, addCustomer, claimGoogleReview } = useStore();
 
   const [remoteShop, setRemoteShop] = useState<CommerceSettings | null>(null);
   const [remoteRewards, setRemoteRewards] = useState<RewardTier[] | null>(null);
@@ -30,15 +30,24 @@ export const CustomerCardPublicPage: React.FC = () => {
   const shop = remoteShop || commerces.find((c) => c.slug === slug) || commerces[0];
   const activeRewards = remoteRewards ?? rewards;
 
-  const isJoinRoute = location.pathname.startsWith('/join');
-  const [activeCustomer, setActiveCustomer] = useState<Customer | undefined>(customers[0]);
-  const [joinMode, setJoinMode] = useState<boolean>(isJoinRoute || !customers[0]);
+  const storageKey = `fidelio_customer_${slug || shop.slug || 'default'}`;
+  const [activeCustomer, setActiveCustomer] = useState<Customer | undefined>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : undefined;
+    } catch {
+      return undefined;
+    }
+  });
+
+  const [joinMode, setJoinMode] = useState<boolean>(!activeCustomer);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [walletNotice, setWalletNotice] = useState<string | null>(null);
 
+  // 1. Fetch merchant details by slug
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
@@ -50,22 +59,47 @@ export const CustomerCardPublicPage: React.FC = () => {
         if (json.ok && json.merchant) {
           setRemoteShop(json.merchant);
           setRemoteRewards(Array.isArray(json.rewards) ? json.rewards : []);
-          if (!activeCustomer && Array.isArray(json.customers) && json.customers.length > 0 && !isJoinRoute) {
-            setActiveCustomer(json.customers[0]);
-            setJoinMode(false);
-          }
         }
       })
-      .catch(() => {
-        // Fallback to context shop
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setLoadingShop(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [slug, isJoinRoute, activeCustomer]);
+  }, [slug]);
+
+  // 2. Real-time live polling: updates customer points/stamps on screen automatically when cashier scans
+  useEffect(() => {
+    if (!activeCustomer?.code) return;
+    let isSubscribed = true;
+
+    const checkLiveBalance = async () => {
+      try {
+        const res = await fetch(`/api/customers/${encodeURIComponent(activeCustomer.code)}`);
+        const json = await res.json();
+        if (isSubscribed && json.ok && json.customer) {
+          const fresh = json.customer as Customer;
+          if (fresh.points !== activeCustomer.points || fresh.visits !== activeCustomer.visits) {
+            setActiveCustomer(fresh);
+            localStorage.setItem(storageKey, JSON.stringify(fresh));
+          }
+        }
+      } catch {
+        // Network polling silent catch
+      }
+    };
+
+    // Immediate check + repeat every 2.5s
+    void checkLiveBalance();
+    const interval = setInterval(checkLiveBalance, 2500);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, [activeCustomer?.code, activeCustomer?.points, activeCustomer?.visits, storageKey]);
 
   const currentPoints = activeCustomer?.points ?? 0;
   const sortedRewards = [...activeRewards].sort((a, b) => a.cost - b.cost);
@@ -90,6 +124,7 @@ export const CustomerCardPublicPage: React.FC = () => {
       return;
     }
     setActiveCustomer(res.customer);
+    localStorage.setItem(storageKey, JSON.stringify(res.customer));
     setJoinMode(false);
     setWalletNotice(
       `Bienvenue ${res.customer.name} ! Votre carte ${res.customer.code} est active${
