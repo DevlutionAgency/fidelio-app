@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import {
   Users,
+  ArrowRight,
   QrCode,
   Gift,
   TrendingUp,
@@ -67,20 +68,82 @@ import { StickerBadge, QrCodeMatrix } from '../components/BrandLogo';
    1. ACCUEIL (/dashboard) — Exact replica of Screenshot 2
    ============================================================================ */
 export const DashboardHome: React.FC = () => {
-  const { customers, rewards } = useStore();
+  const { commerce, customers, rewards, transactions } = useStore();
   const [moreDetailsOpen, setMoreDetailsOpen] = useState(false);
+  const currencyLabel = commerce.currency || 'MAD';
 
-  const totalVisits = customers.reduce((acc, c) => acc + c.visits, 0);
+  // Visites sur les 30 derniers jours à partir des transactions SQLite réelles
+  const now = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(now.getDate() - 30);
+
+  const tx30Days = transactions.filter((t) => {
+    const tDate = new Date(t.timestamp || t.createdAt || '');
+    return !isNaN(tDate.getTime()) && tDate >= thirtyDaysAgo;
+  });
+
+  const totalVisits = tx30Days.length > 0 ? tx30Days.length : customers.reduce((acc, c) => acc + c.visits, 0);
+
+  // Clients inscrits ce mois-ci
+  const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const newCustomersThisMonth = customers.filter((c) => {
+    const mDate = new Date(c.memberSince || '');
+    return !isNaN(mDate.getTime()) && mDate >= firstDayThisMonth;
+  }).length;
+
   const returningCount = customers.filter((c) => c.visits >= 2).length;
   const returningRate =
     customers.length > 0 ? Math.round((returningCount / customers.length) * 100) : 0;
   const totalRevenue = customers.reduce((acc, c) => acc + c.totalSpent, 0);
+
+  // Frequency chart buckets over last 30 days
+  const dayBuckets = Array.from({ length: 30 }).map((_, i) => {
+    const d = new Date();
+    d.setDate(now.getDate() - (29 - i));
+    const dateStr = d.toISOString().slice(0, 10);
+    const count = transactions.filter(
+      (t) => (t.timestamp || t.createdAt || '').slice(0, 10) === dateStr
+    ).length;
+    return { dateStr, count };
+  });
+  const maxBucketCount = Math.max(1, ...dayBuckets.map((b) => b.count));
 
   return (
     <div className="space-y-4">
       <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
         ACCUEIL
       </h1>
+
+      {/* Top Quota Banner: 0 / 30 clients avec barre de progression dynamique */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-soft">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/45">
+                QUOTA CLIENTS ({commerce.name})
+              </span>
+              <span className="text-xs font-medium text-ink/50">
+                <strong className="font-impact text-base text-ink">{customers.length}</strong> / 30 clients
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-ink/[0.06]">
+              <div
+                className="h-full rounded-full bg-coral transition-all duration-500"
+                style={{ width: `${Math.min(100, (customers.length / 30) * 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-ink/60">
+              Gratuit jusqu&apos;à 30 clients inscrits en base.
+            </p>
+          </div>
+          <Link
+            to="/billing"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-bold text-ink transition-colors hover:bg-ink/[0.03] shrink-0"
+          >
+            Voir l&apos;abonnement <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
 
       {/* Banner: Créez votre première récompense */}
       {rewards.length === 0 && (
@@ -92,7 +155,7 @@ export const DashboardHome: React.FC = () => {
             </p>
           </div>
           <Link
-            to="/rewards"
+            to="/dashboard/rewards"
             className="inline-flex items-center justify-center rounded-xl bg-coral px-4 py-2 text-xs font-bold text-white shadow-sm shrink-0"
           >
             Créer
@@ -103,21 +166,21 @@ export const DashboardHome: React.FC = () => {
       {/* 3 Quick Action Buttons Row */}
       <div className="grid sm:grid-cols-3 gap-3">
         <Link
-          to="/scan"
+          to="/caisse"
           className="flex items-center gap-2.5 rounded-2xl bg-coral px-4 py-3.5 text-sm font-bold text-white shadow-hard-coral transition-transform active:scale-[0.99]"
         >
           <ScanLine className="h-4 w-4 shrink-0" />
           Scanner une carte
         </Link>
         <Link
-          to="/notifications"
+          to="/dashboard/messages"
           className="flex items-center gap-2.5 rounded-2xl border border-ink/[0.08] bg-white px-4 py-3.5 text-sm font-bold text-ink shadow-soft transition-colors hover:bg-ink/[0.02]"
         >
           <Send className="h-4 w-4 shrink-0 text-coral" />
           Envoyer un message
         </Link>
         <Link
-          to="/qrcode"
+          to="/dashboard/qrcode"
           className="flex items-center gap-2.5 rounded-2xl border border-ink/[0.08] bg-white px-4 py-3.5 text-sm font-bold text-ink shadow-soft transition-colors hover:bg-ink/[0.02]"
         >
           <QrCode className="h-4 w-4 shrink-0 text-coral" />
@@ -137,7 +200,7 @@ export const DashboardHome: React.FC = () => {
           <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/50">
             CLIENTS
           </p>
-          <p className="mt-0.5 text-[11px] text-ink/45">+{customers.length} ce mois</p>
+          <p className="mt-0.5 text-[11px] text-ink/45">+{newCustomersThisMonth || customers.length} ce mois</p>
         </div>
 
         {/* Card 2: VISITES */}
@@ -166,7 +229,7 @@ export const DashboardHome: React.FC = () => {
           <p className="mt-0.5 text-[11px] text-ink/45">au moins 2 visites</p>
         </div>
 
-        {/* Card 4: CA (DZD) */}
+        {/* Card 4: CA (MAD ou EUR) */}
         <div className="relative overflow-hidden rounded-2xl border border-ink/[0.08] bg-white p-4 shadow-soft">
           <div className="absolute inset-x-0 top-0 h-1 bg-coral" />
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-coral text-white">
@@ -176,9 +239,9 @@ export const DashboardHome: React.FC = () => {
             {totalRevenue.toLocaleString('fr-FR')}
           </p>
           <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-ink/50">
-            CA (DZD)
+            CA ({currencyLabel})
           </p>
-          <p className="mt-0.5 text-[11px] text-ink/45">30 j · total {totalRevenue}</p>
+          <p className="mt-0.5 text-[11px] text-ink/45">30 j · total {totalRevenue} {currencyLabel}</p>
         </div>
       </div>
 
@@ -189,10 +252,10 @@ export const DashboardHome: React.FC = () => {
             )))
           </div>
           <div>
-            <p className="text-xs font-bold text-ink">Plaque NFC — 150 DZD, une seule fois</p>
+            <p className="text-xs font-bold text-ink">Plaque NFC — Connectée à votre compte</p>
             <p className="text-[11px] text-ink/60">
               Vos clients approchent leur téléphone pour s&apos;inscrire. En attendant, votre{' '}
-              <Link to="/qrcode" className="underline hover:text-ink">
+              <Link to="/dashboard/qrcode" className="underline hover:text-ink">
                 QR code
               </Link>{' '}
               fonctionne déjà.
@@ -218,16 +281,24 @@ export const DashboardHome: React.FC = () => {
             </p>
           </div>
           <span className="text-[11px] text-ink/40">
-            {totalVisits === 0 ? 'Aucune visite sur la période' : `${totalVisits} visite(s)`}
+            {totalVisits === 0 ? 'Aucune visite sur la période' : `${totalVisits} passage(s) enregistré(s)`}
           </span>
         </div>
 
-        <div className="mt-12 pt-6 border-b border-ink/[0.08] flex items-end justify-between gap-1 h-16">
-          {Array.from({ length: 30 }).map((_, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center">
-              <div className="w-full h-1 rounded-t bg-ink/[0.06]" />
-            </div>
-          ))}
+        <div className="mt-8 pt-4 border-b border-ink/[0.08] flex items-end justify-between gap-1.5 h-24">
+          {dayBuckets.map((bucket, i) => {
+            const heightPct = bucket.count > 0 ? Math.max(15, Math.round((bucket.count / maxBucketCount) * 100)) : 6;
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center h-full justify-end group relative" title={`${bucket.dateStr}: ${bucket.count} visite(s)`}>
+                <div
+                  className={`w-full rounded-t transition-all ${
+                    bucket.count > 0 ? 'bg-coral shadow-sm' : 'bg-ink/[0.06]'
+                  }`}
+                  style={{ height: `${heightPct}%` }}
+                />
+              </div>
+            );
+          })}
         </div>
         <div className="mt-2 flex items-center justify-between text-[10px] text-ink/40">
           <span>Il y a 30 jours</span>
@@ -714,7 +785,8 @@ export const ScanPage: React.FC = () => {
 export const CustomersPage: React.FC = () => {
   const { customers, addCustomer, commerce } = useStore();
   const location = useLocation();
-  const isImportTab = location.pathname.startsWith('/clients-import');
+  const isImportUrl = location.pathname.startsWith('/clients-import');
+  const [activeTab, setActiveTab] = useState<'list' | 'import'>(isImportUrl ? 'import' : 'list');
 
   const [csvText, setCsvText] = useState('');
   const [importDone, setImportDone] = useState<string | null>(null);
@@ -731,8 +803,8 @@ export const CustomersPage: React.FC = () => {
       if (n) {
         addCustomer({
           name: n,
-          phone: p || '+213 5 50 00 00 00',
-          email: em || 'client@fidelio.dz',
+          phone: p || '+212 6 00 00 00 00',
+          email: em || 'client@fidelio.ma',
           walletAdded: 'apple',
         });
         count++;
@@ -741,79 +813,153 @@ export const CustomersPage: React.FC = () => {
     setImportDone(`${count} client(s) importé(s) avec succès.`);
   };
 
-  if (isImportTab) {
-    return (
-      <div className="max-w-xl space-y-4">
-        <p className="text-xs text-ink/60">
-          Importez vos clients existants au format CSV pour leur attribuer une carte Fidelio.
-        </p>
-        <form
-          onSubmit={handleBulkImport}
-          className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4"
-        >
-          <div className="flex items-center gap-2 text-sm font-bold text-ink">
-            <Upload className="h-4 w-4 text-coral" />
-            <span>Importer un fichier CSV</span>
-          </div>
-          <textarea
-            rows={4}
-            value={csvText}
-            onChange={(e) => setCsvText(e.target.value)}
-            placeholder="Nom;Téléphone;Email"
-            className="w-full rounded-xl border border-ink/15 p-3 font-mono text-xs text-ink"
-          />
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-coral px-4 py-2.5 text-xs font-bold text-white shadow-hard-coral"
-          >
-            <Upload className="h-3.5 w-3.5" /> Importer pour {commerce.name}
-          </button>
-          {importDone && (
-            <p className="text-xs font-semibold text-emerald-700">{importDone}</p>
-          )}
-        </form>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-ink/55">
-        {customers.length} {customers.length > 1 ? 'clients inscrits' : 'client inscrit'}
-      </p>
-
-      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft">
-        <div className="flex items-center gap-2 text-xs font-bold text-ink">
-          <Users className="h-4 w-4 text-ink/60" />
-          <span>Liste des membres</span>
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="font-impact text-3xl uppercase tracking-tight text-ink">
+            CLIENTS
+          </h1>
+          <p className="text-xs text-ink/55">
+            {customers.length} {customers.length > 1 ? 'clients inscrits' : 'client inscrit'} chez {commerce.name}
+          </p>
         </div>
 
-        {customers.length === 0 ? (
-          <div className="py-14 flex flex-col items-center justify-center text-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-coral/10 text-coral">
-              <Search className="h-5 w-5" />
-            </div>
-            <p className="mt-3 text-xs font-bold text-ink">Aucun client pour le moment</p>
-            <p className="mt-0.5 text-[11px] text-ink/45">
-              Partagez votre QR code pour commencer
-            </p>
-          </div>
-        ) : (
-          <div className="mt-4 divide-y divide-ink/[0.06]">
-            {customers.map((c) => (
-              <div key={c.id} className="py-3 flex items-center justify-between text-xs">
-                <div>
-                  <p className="font-mono font-bold text-ink">{c.code}</p>
-                  <p className="text-ink/50">Membre depuis {c.memberSince}</p>
-                </div>
-                <span className="font-bold text-coral">
-                  {c.points} {commerce.mode === 'tampons' ? 'tampons' : 'pts'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Sub-tabs header: Mes clients & Importer */}
+        <div className="inline-flex rounded-xl border border-ink/10 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setActiveTab('list')}
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              activeTab === 'list'
+                ? 'bg-coral text-white shadow-sm'
+                : 'text-ink/60 hover:text-ink'
+            }`}
+          >
+            Mes clients ({customers.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('import')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              activeTab === 'import'
+                ? 'bg-coral text-white shadow-sm'
+                : 'text-ink/60 hover:text-ink'
+            }`}
+          >
+            <Upload className="h-3 w-3" />
+            Importer
+          </button>
+        </div>
       </div>
+
+      {activeTab === 'import' ? (
+        <div className="max-w-xl space-y-4">
+          <p className="text-xs text-ink/60">
+            Importez vos clients existants au format CSV pour leur attribuer une carte Fidelio.
+          </p>
+          <form
+            onSubmit={handleBulkImport}
+            className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4"
+          >
+            <div className="flex items-center gap-2 text-sm font-bold text-ink">
+              <Upload className="h-4 w-4 text-coral" />
+              <span>Importer un fichier CSV</span>
+            </div>
+            <textarea
+              rows={4}
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              placeholder="Nom;Téléphone;Email"
+              className="w-full rounded-xl border border-ink/15 p-3 font-mono text-xs text-ink focus:border-coral outline-none"
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-coral px-4 py-2.5 text-xs font-bold text-white shadow-hard-coral"
+            >
+              <Upload className="h-3.5 w-3.5" /> Importer pour {commerce.name}
+            </button>
+            {importDone && (
+              <p className="text-xs font-semibold text-emerald-700">{importDone}</p>
+            )}
+          </form>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft">
+          <div className="flex items-center gap-2 text-xs font-bold text-ink mb-4">
+            <Users className="h-4 w-4 text-ink/60" />
+            <span>Liste des clients ({customers.length})</span>
+          </div>
+
+          {customers.length === 0 ? (
+            <div className="py-14 flex flex-col items-center justify-center text-center">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+                <Search className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-xs font-bold text-ink">Aucun client pour le moment</p>
+              <p className="mt-0.5 text-[11px] text-ink/45">
+                Partagez votre QR code pour commencer
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-ink/[0.08] bg-ink/[0.02] text-[10px] font-bold uppercase tracking-wider text-ink/60">
+                    <th className="py-3 px-4">Prénom</th>
+                    <th className="py-3 px-4">Téléphone WhatsApp</th>
+                    <th className="py-3 px-4">Code client</th>
+                    <th className="py-3 px-4 text-center">Solde de tampons</th>
+                    <th className="py-3 px-4 text-center">Total des visites</th>
+                    <th className="py-3 px-4 text-right">Dernier passage</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink/[0.06]">
+                  {customers.map((c) => {
+                    const cleanPhone = (c.phone || '').replace(/[^0-9]/g, '');
+                    const waLink = cleanPhone ? `https://wa.me/${cleanPhone}` : undefined;
+                    const firstName = (c.name || 'Client').split(' ')[0];
+                    const lastVisitStr = c.lastVisit
+                      ? new Date(c.lastVisit).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })
+                      : 'Premier passage';
+
+                    return (
+                      <tr key={c.id} className="hover:bg-ink/[0.01] transition-colors">
+                        <td className="py-3 px-4 font-bold text-ink">{firstName}</td>
+                        <td className="py-3 px-4">
+                          {waLink ? (
+                            <a
+                              href={waLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+                              <span>{c.phone}</span>
+                            </a>
+                          ) : (
+                            <span className="text-ink/60">{c.phone || 'Non renseigné'}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-mono font-bold text-ink">{c.code}</td>
+                        <td className="py-3 px-4 text-center font-bold text-coral">
+                          {c.points} {commerce.mode === 'tampons' ? 'tampon(s)' : 'pts'}
+                        </td>
+                        <td className="py-3 px-4 text-center font-bold text-ink">{c.visits}</td>
+                        <td className="py-3 px-4 text-right text-ink/50">{lastVisitStr}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -824,7 +970,8 @@ export const CustomersPage: React.FC = () => {
 export const RewardsPage: React.FC = () => {
   const { commerce, updateCommerce, rewards, addReward, deleteReward } = useStore();
   const location = useLocation();
-  const isReglesTab = location.pathname.startsWith('/program');
+  const isReglesUrl = location.pathname.startsWith('/program') || location.pathname.endsWith('/program');
+  const [activeTab, setActiveTab] = useState<'rewards' | 'rules'>(isReglesUrl ? 'rules' : 'rewards');
 
   const [addingReward, setAddingReward] = useState(false);
   const [title, setTitle] = useState('');
@@ -833,7 +980,7 @@ export const RewardsPage: React.FC = () => {
     commerce.programName || `Programme ${commerce.name}`
   );
   const [programMode, setProgramMode] = useState<'tampons' | 'points'>(commerce.mode);
-  const [currency, setCurrency] = useState<'DZD' | 'EUR'>('DZD');
+  const [currency, setCurrency] = useState<'MAD' | 'EUR'>(commerce.currency || 'MAD');
   const [stampsPerCard, setStampsPerCard] = useState(commerce.stampsTarget || 10);
   const [pointsPerDzd, setPointsPerDzd] = useState(commerce.pointsPerMad || 1);
   const [referralStamps, setReferralStamps] = useState(commerce.referralBonus || 0);
@@ -850,6 +997,7 @@ export const RewardsPage: React.FC = () => {
     setSavedToast(false);
     const ok = await updateCommerce({
       programName,
+      currency,
       mode: programMode,
       stampsTarget: stampsPerCard,
       pointsPerMad: pointsPerDzd,
@@ -864,421 +1012,445 @@ export const RewardsPage: React.FC = () => {
     }
   };
 
-  if (isReglesTab) {
-    return (
-      <div className="max-w-md space-y-4">
-        {/* Card 1: Configuration */}
-        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-ink">
-            <SlidersHorizontal className="h-4 w-4 text-coral" />
-            <span>Configuration</span>
-          </div>
+  return (
+    <div className="space-y-4">
+      {/* Sub-tabs header: Récompenses & Règles */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="font-impact text-3xl uppercase tracking-tight text-ink">
+            PROGRAMME & RÉCOMPENSES
+          </h1>
+          <p className="text-xs text-ink/55">
+            Personnalisez les paliers et les récompenses de fidélité pour {commerce.name}
+          </p>
+        </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-ink mb-1">
-              Nom du programme de fidélité
-            </label>
-            <input
-              type="text"
-              value={programName}
-              onChange={(e) => {
-                setProgramName(e.target.value);
-                setSavedToast(false);
-              }}
-              placeholder="Programme Fidélité"
-              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
-            />
-          </div>
+        <div className="inline-flex rounded-xl border border-ink/10 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setActiveTab('rewards')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              activeTab === 'rewards'
+                ? 'bg-coral text-white shadow-sm'
+                : 'text-ink/60 hover:text-ink'
+            }`}
+          >
+            <Gift className="h-3.5 w-3.5" />
+            Récompenses ({rewards.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('rules')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
+              activeTab === 'rules'
+                ? 'bg-coral text-white shadow-sm'
+                : 'text-ink/60 hover:text-ink'
+            }`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Règles & Barème
+          </button>
+        </div>
+      </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-ink mb-1.5">
-              Mode de fidélité (Tampons ou Points)
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setProgramMode('tampons');
+      {activeTab === 'rules' ? (
+        <div className="max-w-xl space-y-4">
+          {/* Card 1: Configuration */}
+          <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-ink">
+              <SlidersHorizontal className="h-4 w-4 text-coral" />
+              <span>Configuration du programme</span>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-ink mb-1">
+                Nom du programme de fidélité
+              </label>
+              <input
+                type="text"
+                value={programName}
+                onChange={(e) => {
+                  setProgramName(e.target.value);
                   setSavedToast(false);
                 }}
-                className={`rounded-xl border px-3.5 py-2.5 text-left text-xs font-bold transition-colors ${
-                  programMode === 'tampons'
-                    ? 'border-coral bg-coral/[0.06] text-coral'
-                    : 'border-ink/10 bg-white text-ink/70'
-                }`}
-              >
-                Tampons (au passage)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setProgramMode('points');
-                  setSavedToast(false);
-                }}
-                className={`rounded-xl border px-3.5 py-2.5 text-left text-xs font-bold transition-colors ${
-                  programMode === 'points'
-                    ? 'border-coral bg-coral/[0.06] text-coral'
-                    : 'border-ink/10 bg-white text-ink/70'
-                }`}
-              >
-                Points (au montant DZD)
-              </button>
+                placeholder="Programme Fidélité"
+                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink focus:border-coral outline-none"
+              />
+            </div>
+
+            {/* Devise : MAD ou EUR */}
+            <div>
+              <label className="block text-[11px] font-bold text-ink mb-1.5">
+                Choix de devise
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrency('MAD');
+                    setSavedToast(false);
+                  }}
+                  className={`rounded-xl border px-3.5 py-2.5 text-center text-xs font-bold transition-all ${
+                    currency === 'MAD'
+                      ? 'border-coral bg-coral/[0.06] text-coral shadow-sm'
+                      : 'border-ink/10 bg-white text-ink/70 hover:bg-ink/[0.02]'
+                  }`}
+                >
+                  MAD (Dirham marocain)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrency('EUR');
+                    setSavedToast(false);
+                  }}
+                  className={`rounded-xl border px-3.5 py-2.5 text-center text-xs font-bold transition-all ${
+                    currency === 'EUR'
+                      ? 'border-coral bg-coral/[0.06] text-coral shadow-sm'
+                      : 'border-ink/10 bg-white text-ink/70 hover:bg-ink/[0.02]'
+                  }`}
+                >
+                  EUR (Euro €)
+                </button>
+              </div>
+              <p className="mt-1.5 text-[10px] text-ink/45">
+                Devise appliquée aux passages en caisse, au tableau de bord et aux statistiques de chiffre d&apos;affaires.
+              </p>
+            </div>
+
+            {/* Nombre de tampons par carte */}
+            <div>
+              <label className="block text-[11px] font-bold text-ink mb-1.5">
+                Nombre de tampons par carte
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                {[5, 6, 8, 10, 12, 15].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => {
+                      setStampsPerCard(n);
+                      setSavedToast(false);
+                    }}
+                    className={`h-10 w-10 rounded-xl font-impact text-base transition-all ${
+                      stampsPerCard === n
+                        ? 'bg-coral text-white shadow-hard-coral scale-105'
+                        : 'bg-ink/[0.04] text-ink hover:bg-ink/[0.08]'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+
+              {/* Dynamic Dark Stamp Preview Box */}
+              <div className="mt-3 rounded-2xl bg-[#181818] p-4 text-white shadow-md">
+                <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.14em] text-white/50">
+                  <span>APERÇU DU PASS NOIR — {stampsPerCard} TAMPONS</span>
+                  <span className="text-coral">{commerce.name}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {Array.from({ length: stampsPerCard }).map((_, idx) => {
+                    const filled = idx < Math.min(3, stampsPerCard);
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                          filled
+                            ? 'bg-coral text-white shadow-sm'
+                            : 'border-2 border-white/20 text-white/30 bg-white/[0.02]'
+                        }`}
+                      >
+                        {filled ? '★' : idx + 1}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2.5 text-[10px] text-white/60">
+                  Grille dynamique de {stampsPerCard} tampons configurée pour la carte Apple &amp; Google Wallet.
+                </p>
+              </div>
             </div>
           </div>
 
-          {programMode === 'points' && (
+          {/* Card 2: Parrainage */}
+          <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-ink">
+              <Gift className="h-4 w-4 text-coral" />
+              <span>Carte Parrainage</span>
+            </div>
             <div>
               <label className="block text-[11px] font-bold text-ink mb-1">
-                Points gagnés par tranche de 100 DZD
+                Nombre de tampons offerts (parrain et filleul)
               </label>
               <input
                 type="number"
-                min={1}
-                value={pointsPerDzd}
-                onChange={(e) => setPointsPerDzd(Math.max(1, Number(e.target.value)))}
-                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
+                min={0}
+                value={referralStamps}
+                onChange={(e) => {
+                  setReferralStamps(Math.max(0, Number(e.target.value)));
+                  setSavedToast(false);
+                }}
+                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink focus:border-coral outline-none"
               />
+              <p className="mt-1.5 text-[10px] leading-relaxed text-ink/50">
+                Chaque nouvel invité et son parrain recevront automatiquement ce bonus de tampons lors de leur premier scan.
+              </p>
             </div>
-          )}
-
-          <div>
-            <label className="block text-[11px] font-bold text-ink mb-1.5">
-              Devise de vos montants
-            </label>
-            <div className="inline-flex gap-2">
-              <button
-                type="button"
-                onClick={() => setCurrency('DZD')}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors ${
-                  currency === 'DZD'
-                    ? 'border-coral bg-coral/[0.06] text-coral'
-                    : 'border-ink/10 bg-white text-ink/60'
-                }`}
-              >
-                Dinar (DZD)
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrency('EUR')}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors ${
-                  currency === 'EUR'
-                    ? 'border-coral bg-coral/[0.06] text-coral'
-                    : 'border-ink/10 bg-white text-ink/60'
-                }`}
-              >
-                Euro (€)
-              </button>
-            </div>
-            <p className="mt-1.5 text-[10px] text-ink/45">
-              Celle des montants saisis en caisse, du barème et du chiffre d&apos;affaires affiché.
-            </p>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-ink mb-1.5">
-              Nombre de tampons par carte
+          {/* Card 3: Bonus avis Google */}
+          <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-ink">
+              <Star className="h-4 w-4 text-coral" />
+              <span>Carte Bonus avis Google</span>
+            </div>
+
+            <label className="flex items-center gap-2.5 text-xs font-bold text-ink cursor-pointer">
+              <input
+                type="checkbox"
+                checked={googleBonusEnabled}
+                onChange={(e) => {
+                  setGoogleBonusEnabled(e.target.checked);
+                  setSavedToast(false);
+                }}
+                className="h-4 w-4 rounded accent-coral text-coral"
+              />
+              <span>Activer le bonus pour avis Google déposé</span>
             </label>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[5, 6, 8, 10, 12, 15].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setStampsPerCard(n)}
-                  className={`h-9 w-9 rounded-xl font-impact text-sm transition-all ${
-                    stampsPerCard === n
-                      ? 'bg-coral text-white shadow-hard-coral'
-                      : 'bg-ink/[0.04] text-ink hover:bg-ink/[0.08]'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+
+            <div>
+              <label className="block text-[11px] font-bold text-ink mb-1">
+                Nombre de tampons bonus accordés
+              </label>
               <input
                 type="number"
-                min={1}
-                max={30}
-                value={stampsPerCard}
-                onChange={(e) => setStampsPerCard(Math.max(1, Number(e.target.value)))}
-                className="h-9 w-14 rounded-xl border border-ink/10 bg-white px-2 text-center text-xs font-bold text-ink"
+                min={0}
+                value={googleBonusStamps}
+                onChange={(e) => {
+                  setGoogleBonusStamps(Math.max(0, Number(e.target.value)));
+                  setSavedToast(false);
+                }}
+                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink focus:border-coral outline-none"
               />
             </div>
 
-            {/* Dark Stamp Preview Box */}
-            <div className="mt-3 rounded-2xl bg-[#181818] p-4 text-white">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/50">
-                APERÇU — {stampsPerCard} TAMPONS
-              </p>
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {Array.from({ length: stampsPerCard }).map((_, idx) => {
-                  const filled = idx < Math.min(7, stampsPerCard - 1);
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
-                        filled
-                          ? 'bg-coral text-white shadow-sm'
-                          : 'border border-white/20 text-white/30'
-                      }`}
-                    >
-                      {filled ? '✓' : ''}
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-[10px] text-white/55">
-                {Math.min(7, stampsPerCard - 1)}/{stampsPerCard} tampons collectés → récompense
-                proche !
+            <div>
+              <label className="block text-[11px] font-bold text-ink mb-1">
+                URL Google Place ID (fiche établissement)
+              </label>
+              <input
+                type="text"
+                value={googlePlaceUrl}
+                onChange={(e) => {
+                  setGooglePlaceUrl(e.target.value);
+                  setSavedToast(false);
+                }}
+                placeholder="https://search.google.com/local/writereview?placeid=..."
+                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink focus:border-coral outline-none"
+              />
+              <p className="mt-1 text-[10px] text-ink/45">
+                Redirige directement vos clients vers le formulaire 5 étoiles de votre fiche Google Maps.
               </p>
             </div>
-            <p className="mt-1.5 text-[10px] text-ink/45">
-              L&apos;icône dessinée dans les tampons se choisit dans Apparence, à côté de
-              l&apos;aperçu de la carte.
-            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleSave}
+              className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral disabled:opacity-50 transition-transform active:scale-95"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Sauvegarde SQLite en cours...' : savedToast ? 'Enregistré en base ✓' : 'Enregistrer les règles'}
+            </button>
+            {savedToast && (
+              <span className="text-xs font-semibold text-emerald-700 animate-fade-in">
+                Configuration sauvegardée avec succès !
+              </span>
+            )}
           </div>
         </div>
-
-        {/* Card 2: Parrainage */}
-        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-ink">
-            <Gift className="h-4 w-4 text-coral" />
-            <span>Parrainage</span>
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-ink mb-1">
-              Bonus de parrainage (tampons)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={referralStamps}
-              onChange={(e) => setReferralStamps(Number(e.target.value))}
-              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
-            />
-            <p className="mt-1.5 text-[10px] leading-relaxed text-ink/50">
-              Quand un client invite un ami, <strong className="text-ink">les deux</strong>{' '}
-              reçoivent ce bonus au <strong className="text-ink">premier passage en caisse</strong>{' '}
-              de l&apos;ami — pas à son inscription. Mettez 0 pour ne pas offrir de bonus.
-            </p>
-          </div>
-        </div>
-
-        {/* Card 3: Bonus avis Google */}
-        <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-ink">
-            <Star className="h-4 w-4 text-coral" />
-            <span>Bonus avis Google</span>
-          </div>
-
-          <label className="flex items-center gap-2 text-xs font-medium text-ink cursor-pointer">
-            <input
-              type="checkbox"
-              checked={googleBonusEnabled}
-              onChange={(e) => setGoogleBonusEnabled(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-ink/25 text-coral"
-            />
-            <span>Activer le bonus avis Google</span>
-          </label>
-
-          <div>
-            <label className="block text-[11px] font-bold text-ink mb-1">
-              Bonus accordé (tampons)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={googleBonusStamps}
-              onChange={(e) => setGoogleBonusStamps(Number(e.target.value))}
-              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs font-semibold text-ink"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-ink mb-1">
-              Lien de votre page d&apos;avis Google
-            </label>
-            <input
-              type="text"
-              value={googlePlaceUrl}
-              onChange={(e) => setGooglePlaceUrl(e.target.value)}
-              className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
-            />
-            <p className="mt-1 text-[10px] text-ink/45">
-              Collez votre <strong className="text-ink">Place ID</strong> à la fin du lien, après{' '}
-              <code>placeid=</code>.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <a
-                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-ink/10 bg-white px-2.5 py-1 text-[10px] font-bold text-ink"
-              >
-                Trouver mon Place ID <ExternalLink className="h-2.5 w-2.5" />
-              </a>
-              <a
-                href="mailto:fidelioapp.support@gmail.com?subject=Aide%20Place%20ID%20Google"
-                className="inline-flex items-center gap-1 rounded-lg bg-ink px-2.5 py-1 text-[10px] font-bold text-white"
-              >
-                Demander sur WhatsApp
-              </a>
-            </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-ink/50">
-              Le client laisse un avis, puis demande son bonus depuis sa carte.{' '}
-              <strong className="text-ink">Vous validez chaque demande</strong> depuis l&apos;onglet{' '}
-              <Link to="/reviews" className="underline text-ink">
-                Avis Google
-              </Link>{' '}
-              — le bonus n&apos;est crédité qu&apos;
-              <strong className="text-ink">une seule fois par client</strong>.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          disabled={saving}
-          onClick={handleSave}
-          className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral disabled:opacity-50"
-        >
-          <Save className="h-3.5 w-3.5" />
-          {saving ? 'Sauvegarde en base...' : savedToast ? 'Enregistré ✓' : 'Enregistrer'}
-        </button>
-      </div>
-    );
-  }
-
-  // Tab 1: Récompenses (/rewards) — Exact replica of Screenshot 4
-  return (
-    <div className="max-w-lg space-y-4">
-      <p className="text-xs text-ink/55">
-        Vos clients choisissent leur récompense avec leurs tampons.
-      </p>
-
-      {/* Card 1: Vos récompenses */}
-      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-ink">
-          <Gift className="h-4 w-4 text-ink/70" />
-          <span>Vos récompenses</span>
-        </div>
-
-        {rewards.length === 0 ? (
-          <p className="text-xs text-ink/50">
-            Aucune récompense pour l&apos;instant. Ajoutez-en une pour que vos clients sachent ce
-            qu&apos;ils peuvent gagner.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {rewards.map((r) => (
-              <div
-                key={r.id}
-                className="flex items-center justify-between rounded-xl border border-ink/10 px-3.5 py-2.5"
-              >
-                <div>
-                  <p className="text-xs font-bold text-ink">{r.title}</p>
-                  <p className="text-[11px] text-ink/50">{r.cost} tampons</p>
+      ) : (
+        /* Sub-tab 1: Récompenses */
+        <div className="grid lg:grid-cols-2 gap-5 max-w-4xl">
+          {/* Left Column: Rewards List & Add Modal */}
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-ink">
+                <div className="flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-coral" />
+                  <span>Récompenses actives ({rewards.length})</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => deleteReward(r.id)}
-                  className="text-ink/40 hover:text-red-600"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {!addingReward && (
+                  <button
+                    type="button"
+                    onClick={() => setAddingReward(true)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-coral px-2.5 py-1 text-[11px] font-bold text-white shadow-sm"
+                  >
+                    <Plus className="h-3 w-3" /> Ajouter
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-        )}
 
-        {addingReward ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!title.trim()) return;
-              addReward({
-                title,
-                cost,
-                description: 'Récompense fidélité',
-                category: 'Fidélité',
-              });
-              setTitle('');
-              setAddingReward(false);
-            }}
-            className="space-y-2.5 pt-2 border-t border-ink/[0.06]"
-          >
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex : Dessert ou Café offert"
-              className="w-full rounded-xl border border-ink/15 px-3 py-2 text-xs"
-            />
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                value={cost}
-                onChange={(e) => setCost(Number(e.target.value))}
-                className="w-24 rounded-xl border border-ink/15 px-3 py-2 text-xs font-bold"
-              />
-              <span className="text-xs text-ink/60">tampons requis</span>
-              <button
-                type="submit"
-                className="ml-auto rounded-xl bg-ink px-3.5 py-2 text-xs font-bold text-white"
-              >
-                Ajouter
-              </button>
+              {rewards.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-xs text-ink/50">
+                    Aucune récompense active. Ajoutez votre première récompense pour motiver vos clients.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {rewards.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between rounded-xl border border-ink/10 px-3.5 py-2.5 hover:border-ink/20 transition-colors"
+                    >
+                      <div>
+                        <p className="text-xs font-bold text-ink">{r.title}</p>
+                        <p className="text-[11px] text-ink/50">{r.cost} tampons requis</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteReward(r.id)}
+                        title="Supprimer la récompense"
+                        className="text-ink/40 hover:text-red-600 transition-colors p-1"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {addingReward && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!title.trim()) return;
+                    addReward({
+                      title,
+                      cost,
+                      description: 'Récompense fidélité',
+                      category: 'Fidélité',
+                    });
+                    setTitle('');
+                    setAddingReward(false);
+                  }}
+                  className="space-y-3 pt-3 border-t border-ink/[0.06] rounded-xl bg-ink/[0.02] p-3"
+                >
+                  <p className="text-xs font-bold text-ink">Nouvelle récompense</p>
+                  <div>
+                    <label className="block text-[10px] font-bold text-ink mb-1">Titre de la récompense</label>
+                    <input
+                      type="text"
+                      required
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Ex : Café offert, -20% sur l'addition, Dessert au choix..."
+                      className="w-full rounded-xl border border-ink/15 px-3 py-2 text-xs bg-white focus:border-coral outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-ink mb-1">Nombre de tampons requis</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={stampsPerCard}
+                      value={cost}
+                      onChange={(e) => setCost(Math.max(1, Number(e.target.value)))}
+                      className="w-32 rounded-xl border border-ink/15 px-3 py-2 text-xs font-bold bg-white focus:border-coral outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-coral px-4 py-2 text-xs font-bold text-white shadow-sm"
+                    >
+                      Enregistrer la récompense
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddingReward(false)}
+                      className="rounded-xl border border-ink/10 px-3 py-2 text-xs font-bold text-ink hover:bg-white"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
-          </form>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAddingReward(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-ink/10 bg-white py-2.5 text-xs font-bold text-ink transition-colors hover:bg-ink/[0.02]"
-          >
-            <Plus className="h-3.5 w-3.5" /> Ajouter une récompense
-          </button>
-        )}
-      </div>
-
-      {/* Card 2: Ce que verra votre client */}
-      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
-        <p className="text-xs font-bold text-ink">Ce que verra votre client</p>
-
-        <div className="mx-auto max-w-xs rounded-2xl bg-[#181818] p-5 text-white shadow-md">
-          <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-white/60">
-            <Gift className="h-3 w-3" />
-            <span>VOS RÉCOMPENSES</span>
           </div>
-          <p className="mt-1 font-impact text-xl uppercase tracking-tight text-white">
-            CE QUE VOUS POUVEZ GAGNER
-          </p>
-          {rewards.length === 0 ? (
-            <p className="mt-1 text-[11px] text-white/60">Vos récompenses apparaîtront ici.</p>
-          ) : (
-            <ul className="mt-2 space-y-1 text-xs text-white/85">
-              {rewards.map((r) => (
-                <li key={r.id} className="flex justify-between">
-                  <span>{r.title}</span>
-                  <span className="font-bold text-coral">{r.cost} t.</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <p className="text-center text-[10px] text-ink/40">
-          Aperçu indicatif : chaque client voit sa propre progression.
-        </p>
-      </div>
 
-      <button
-        type="button"
-        onClick={handleSave}
-        className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral"
-      >
-        <Save className="h-3.5 w-3.5" />
-        {savedToast ? 'Récompenses enregistrées ✓' : 'Enregistrer les récompenses'}
-      </button>
+          {/* Right Column: Dynamic Black Customer Pass Preview */}
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft">
+              <p className="text-xs font-bold text-ink mb-3">Aperçu dynamique du pass client noir</p>
+
+              <div className="mx-auto rounded-3xl bg-[#141414] p-6 text-white shadow-xl border border-white/10 relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-coral">CARTE DE FIDÉLITÉ</span>
+                    <h3 className="font-impact text-xl text-white tracking-wide mt-0.5">{commerce.name}</h3>
+                  </div>
+                  <div className="h-9 w-9 rounded-full bg-coral/20 flex items-center justify-center text-coral font-bold text-sm">
+                    {commerce.name.charAt(0)}
+                  </div>
+                </div>
+
+                <div className="my-5">
+                  <div className="flex justify-between items-center text-[10px] text-white/50 mb-2">
+                    <span>TAMPONS COLLECTÉS</span>
+                    <span className="text-coral font-bold">{Math.min(stampsPerCard, 4)} / {stampsPerCard}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-center py-2 bg-white/[0.03] rounded-2xl border border-white/5">
+                    {Array.from({ length: stampsPerCard }).map((_, idx) => {
+                      const collected = idx < 4;
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                            collected
+                              ? 'bg-coral text-white shadow-md'
+                              : 'border border-white/15 text-white/20'
+                          }`}
+                        >
+                          {collected ? '✓' : idx + 1}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t border-white/10 pt-4">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/50 mb-2">
+                    <Gift className="h-3 w-3 text-coral" />
+                    <span>RÉCOMPENSES À DÉBLOQUER</span>
+                  </div>
+                  {rewards.length === 0 ? (
+                    <p className="text-xs text-white/40 italic">Aucune récompense configurée</p>
+                  ) : (
+                    <ul className="space-y-1.5 text-xs text-white/85">
+                      {rewards.map((r) => (
+                        <li key={r.id} className="flex justify-between items-center py-1 border-b border-white/5 last:border-0">
+                          <span>{r.title}</span>
+                          <span className="font-bold text-coral bg-coral/10 px-2 py-0.5 rounded-full text-[10px]">
+                            {r.cost} tampons
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              <p className="text-center text-[10px] text-ink/40 mt-3">
+                Rendu temps réel tel qu&apos;affiché dans Apple Wallet et sur le pass web client.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

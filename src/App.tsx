@@ -26,8 +26,11 @@ export const App: React.FC = () => {
 
           {/* Public Auth & Onboarding Routes */}
           <Route path="/login" element={<AuthOnboardingPage mode="login" />} />
+          <Route path="/connexion" element={<AuthOnboardingPage mode="login" />} />
           <Route path="/register" element={<AuthOnboardingPage mode="register" />} />
+          <Route path="/inscription" element={<AuthOnboardingPage mode="register" />} />
           <Route path="/forgot-password" element={<AuthOnboardingPage mode="forgot-password" />} />
+          <Route path="/mot-de-passe-oublie" element={<AuthOnboardingPage mode="forgot-password" />} />
           <Route path="/onboarding" element={<AuthOnboardingPage mode="demarrer" />} />
           <Route path="/demarrer" element={<AuthOnboardingPage mode="demarrer" />} />
           <Route path="/rendez-vous" element={<AuthOnboardingPage mode="rendez-vous" />} />
@@ -47,6 +50,46 @@ export const App: React.FC = () => {
             element={
               <DashboardLayout>
                 <DashboardHome />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/dashboard/customers"
+            element={
+              <DashboardLayout>
+                <CustomersPage />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/dashboard/rewards"
+            element={
+              <DashboardLayout>
+                <RewardsPage />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/dashboard/program"
+            element={
+              <DashboardLayout>
+                <RewardsPage />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/dashboard/messages"
+            element={
+              <DashboardLayout>
+                <NotificationsPage />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/dashboard/qrcode"
+            element={
+              <DashboardLayout>
+                <ExtraDashboardPages section="qrcode" />
               </DashboardLayout>
             }
           />

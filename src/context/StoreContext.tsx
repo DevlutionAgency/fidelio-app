@@ -60,6 +60,7 @@ export interface CommerceSettings {
   email?: string;
   phone?: string;
   category: string;
+  currency?: 'MAD' | 'EUR';
   programName?: string;
   mode: ProgramMode;
   pointsPerMad: number;
@@ -207,6 +208,7 @@ const DEFAULT_COMMERCE: CommerceSettings = {
   name: 'Gourmand',
   slug: 'gourmand-klzq',
   category: 'Restaurant',
+  currency: 'MAD',
   programName: 'Programme Fidélité Gourmand',
   mode: 'tampons',
   pointsPerMad: 1,

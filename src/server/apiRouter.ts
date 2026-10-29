@@ -23,6 +23,7 @@ interface MerchantRow {
   phone: string;
   password_hash: string;
   category: string;
+  currency?: string;
   address: string;
   card_bg_color: string;
   card_accent_color: string;
@@ -125,6 +126,7 @@ function formatMerchantDTO(m: MerchantRow, p?: LoyaltyProgramRow) {
     email: m.email,
     phone: m.phone,
     category: m.category,
+    currency: (m.currency as 'MAD' | 'EUR') || 'MAD',
     address: m.address,
     programId: p?.id ?? `prog-${m.id}`,
     programName: p?.name ?? `Programme ${m.name}`,
@@ -1007,6 +1009,7 @@ async function internalHandleApiRequest(
         `UPDATE merchants SET
           name = ?,
           category = ?,
+          currency = ?,
           address = ?,
           card_bg_color = ?,
           card_accent_color = ?,
@@ -1018,6 +1021,7 @@ async function internalHandleApiRequest(
         [
           patch.name ?? m.name,
           patch.category ?? m.category,
+          patch.currency ?? m.currency ?? 'MAD',
           patch.address ?? m.address,
           patch.cardBgColor ?? m.card_bg_color,
           patch.cardAccentColor ?? m.card_accent_color,

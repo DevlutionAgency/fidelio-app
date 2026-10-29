@@ -43,9 +43,11 @@ export function setTursoConfig(url: string, authToken?: string): void {
  */
 export function isCloudflareRuntime(): boolean {
   return (
-    (typeof navigator !== 'undefined' && Boolean(navigator.userAgent?.includes('Cloudflare'))) ||
     typeof (globalThis as any).WebSocketPair !== 'undefined' ||
-    typeof (globalThis as any).caches?.default !== 'undefined'
+    typeof (globalThis as any).caches?.default !== 'undefined' ||
+    (typeof navigator !== 'undefined' && Boolean(navigator.userAgent?.includes('Cloudflare'))) ||
+    typeof (globalThis as any).EdgeRuntime !== 'undefined' ||
+    (typeof process !== 'undefined' && Boolean((process as any).env?.CF_PAGES || (process as any).env?.WORKER_ENV))
   );
 }
 
@@ -521,14 +523,21 @@ export function getClient(): Client {
     return activeClient;
   }
 
-  // 2. If running on Cloudflare Workers without TURSO_DATABASE_URL, use MemoryDatabase
-  // to avoid URL_SCHEME_NOT_SUPPORTED on file: URLs.
-  if (isCloudflareRuntime()) {
+  // 2. If running on Cloudflare Workers / Web standard isolate without TURSO_DATABASE_URL,
+  // use MemoryDatabase to completely avoid URL_SCHEME_NOT_SUPPORTED on file: URLs.
+  const isNode =
+    typeof process !== 'undefined' &&
+    Boolean(process.versions?.node) &&
+    typeof path !== 'undefined' &&
+    typeof fs !== 'undefined' &&
+    !isCloudflareRuntime();
+
+  if (!isNode) {
     activeClient = createMemoryFallbackClient();
     return activeClient;
   }
 
-  // 3. Otherwise we are running in Node.js (local dev / test): use local SQLite file
+  // 3. Running in Node.js (local dev / test): use local SQLite file
   try {
     const dataDir = path.resolve(process.cwd(), 'data');
     if (!fs.existsSync(dataDir)) {

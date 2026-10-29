@@ -50,6 +50,7 @@ export const LoginMerchantSchema = z.object({
 export const UpdateProgramSchema = z.object({
   name: z.string().trim().min(1).optional(),
   programName: z.string().trim().min(1).optional(),
+  currency: z.enum(['MAD', 'EUR']).optional(),
   category: z.string().trim().optional(),
   address: z.string().trim().optional(),
   mode: z.enum(['points', 'tampons']).optional(),
