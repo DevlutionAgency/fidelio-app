@@ -549,6 +549,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     toggleDarkMode,
     skin,
     toggleSkin,
+    logout,
   } = useStore();
 
   const location = useLocation();
@@ -834,7 +835,10 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
 
           <button
             type="button"
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
             aria-label={collapsed ? 'Se déconnecter' : undefined}
             {...(collapsed ? makeTooltipHandlers('Se déconnecter', setBulle) : {})}
             className={`flex w-full items-center rounded-xl py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/5 hover:text-destructive ${
@@ -1087,6 +1091,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               type="button"
               onClick={() => {
                 setMobileDrawerOpen(false);
+                logout();
                 navigate('/login');
               }}
               data-mouvement=""

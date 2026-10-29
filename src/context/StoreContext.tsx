@@ -199,14 +199,17 @@ interface StoreContextType {
   toggleDarkMode: () => void;
   skin: 'premium' | 'classique';
   toggleSkin: () => void;
+  authUser: { id: string; email: string; name: string } | null;
+  isAuthenticated: boolean;
+  logout: () => void;
 }
 
-const DEFAULT_COMMERCE: CommerceSettings = {
-  id: 'com-1',
-  name: 'Gourmand',
-  slug: 'gourmand-klzq',
-  category: 'Restaurant',
-  programName: 'Programme Fidélité Gourmand',
+export const EMPTY_COMMERCE: CommerceSettings = {
+  id: '',
+  name: 'Mon Établissement',
+  slug: '',
+  category: 'Commerce',
+  programName: 'Programme Fidélité',
   mode: 'tampons',
   pointsPerMad: 1,
   pointsPerDzd: 1,
@@ -215,13 +218,13 @@ const DEFAULT_COMMERCE: CommerceSettings = {
   welcomeBonus: 0,
   referralBonus: 0,
   googleReviewBonus: 0,
-  googleReviewUrl: 'https://search.google.com/local/writereview?placeid=',
+  googleReviewUrl: '',
   cardBgColor: '#1a1a1a',
   cardAccentColor: '#f85b04',
   cardCoverImage: '/landing/cartes/ongles.webp',
   cardLogoImage: '/brand/logo-mark.png',
   address: 'Alger',
-  geoNotificationText: 'Un café vous attend chez nous ☕',
+  geoNotificationText: 'Bienvenue dans notre programme fidélité ✨',
 };
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -229,9 +232,27 @@ const StoreContext = createContext<StoreContextType | null>(null);
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [commerces, setCommerces] = useState<CommerceSettings[]>([DEFAULT_COMMERCE]);
+  const [commerces, setCommerces] = useState<CommerceSettings[]>([]);
   const [activeId, setActiveId] = useState<string>(() => {
-    return localStorage.getItem('fidelio_active_merchant_id') || 'com-1';
+    if (typeof localStorage === 'undefined') return '';
+    const stored = localStorage.getItem('fidelio_active_merchant_id');
+    if (stored === 'com-1' || stored === 'com-support') {
+      localStorage.removeItem('fidelio_active_merchant_id');
+      return '';
+    }
+    return stored || '';
+  });
+  const [authUser, setAuthUser] = useState<{ id: string; email: string; name: string } | null>(() => {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem('fidelio_auth_user');
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+    return null;
   });
   const [rewards, setRewards] = useState<RewardTier[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -246,14 +267,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const clearApiError = useCallback(() => setApiError(null), []);
 
   /**
-   * Robust fetch wrapper guaranteeing NO unhandled JSON parse exceptions (Unexpected end of JSON)
+   * Robust fetch wrapper with automatic Authorization Bearer token injection
    */
   const safeFetchJson = async <T = any>(
     url: string,
     options?: RequestInit
   ): Promise<{ ok: boolean; status: number; data?: T; error?: string }> => {
     try {
-      const res = await fetch(url, options);
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('fidelio_auth_token') : null;
+      const headersObj: Record<string, string> = {};
+      if (options?.headers) {
+        if (options.headers instanceof Headers) {
+          options.headers.forEach((v, k) => {
+            headersObj[k] = v;
+          });
+        } else if (Array.isArray(options.headers)) {
+          options.headers.forEach(([k, v]) => {
+            headersObj[k] = v;
+          });
+        } else {
+          Object.assign(headersObj, options.headers);
+        }
+      }
+      if (token && !headersObj['Authorization'] && !headersObj['authorization']) {
+        headersObj['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(url, {
+        ...options,
+        headers: headersObj,
+      });
+
       const text = await res.text();
       let parsed: any = null;
       if (text && text.trim().length > 0) {
@@ -296,17 +340,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const target = merchantIdOrSlug ?? activeId;
       try {
         setLoading(true);
-        const { ok, data: json, error } = await safeFetchJson(`/api/state?merchant=${encodeURIComponent(target)}`);
+        const { ok, status, data: json, error } = await safeFetchJson(
+          `/api/state${target ? `?merchant=${encodeURIComponent(target)}` : ''}`
+        );
+
+        if (status === 401) {
+          // User is not authenticated: reset private tenant state cleanly
+          setCommerces([]);
+          setActiveId('');
+          setRewards([]);
+          setCustomers([]);
+          setTransactions([]);
+          setLoading(false);
+          return;
+        }
+
         if (!ok || !json) {
           throw new Error(error || 'Erreur lors du chargement des données');
         }
-        if (Array.isArray(json.commerces) && json.commerces.length > 0) {
+
+        if (Array.isArray(json.commerces)) {
           setCommerces(json.commerces);
+          if (json.commerces.length === 0) {
+            setActiveId('');
+            localStorage.removeItem('fidelio_active_merchant_id');
+          }
         }
+
         if (json.activeCommerce) {
           setActiveId(json.activeCommerce.id);
           localStorage.setItem('fidelio_active_merchant_id', json.activeCommerce.id);
+        } else if (Array.isArray(json.commerces) && json.commerces.length > 0) {
+          setActiveId(json.commerces[0].id);
+          localStorage.setItem('fidelio_active_merchant_id', json.commerces[0].id);
         }
+
         setRewards(Array.isArray(json.rewards) ? json.rewards : []);
         setCustomers(Array.isArray(json.customers) ? json.customers : []);
         setTransactions(Array.isArray(json.transactions) ? json.transactions : []);
@@ -321,6 +389,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [activeId]
   );
 
+  const logout = useCallback(() => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('fidelio_auth_token');
+      localStorage.removeItem('fidelio_auth_user');
+      localStorage.removeItem('fidelio_active_merchant_id');
+    }
+    setAuthUser(null);
+    setCommerces([]);
+    setActiveId('');
+    setRewards([]);
+    setCustomers([]);
+    setTransactions([]);
+    setLeads([]);
+  }, []);
+
   useEffect(() => {
     void refreshState(activeId);
   }, [activeId, refreshState]);
@@ -333,7 +416,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     document.documentElement.setAttribute('data-skin', skin);
   }, [skin]);
 
-  const commerce = commerces.find((c) => c.id === activeId) || commerces[0] || DEFAULT_COMMERCE;
+  const commerce = commerces.find((c) => c.id === activeId) || commerces[0] || EMPTY_COMMERCE;
 
   const selectCommerce = (id: string) => {
     setActiveId(id);
@@ -395,7 +478,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { ok: false, error: errMsg };
       }
       const created: CommerceSettings = json.merchant;
-      setCommerces((prev) => [...prev, created]);
+      if (json.token) {
+        localStorage.setItem('fidelio_auth_token', json.token);
+      }
+      if (json.user) {
+        localStorage.setItem('fidelio_auth_user', JSON.stringify(json.user));
+        setAuthUser(json.user);
+      }
+      setCommerces([created]);
       setActiveId(created.id);
       localStorage.setItem('fidelio_active_merchant_id', created.id);
       await refreshState(created.id);
@@ -423,6 +513,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { ok: false, error: errMsg };
       }
       const logged: CommerceSettings = json.merchant;
+      if (json.token) {
+        localStorage.setItem('fidelio_auth_token', json.token);
+      }
+      if (json.user) {
+        localStorage.setItem('fidelio_auth_user', JSON.stringify(json.user));
+        setAuthUser(json.user);
+      }
       setActiveId(logged.id);
       localStorage.setItem('fidelio_active_merchant_id', logged.id);
       await refreshState(logged.id);
@@ -465,6 +562,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       const logged: CommerceSettings = json.merchant;
+      if (json.token) {
+        localStorage.setItem('fidelio_auth_token', json.token);
+      }
+      if (json.user) {
+        localStorage.setItem('fidelio_auth_user', JSON.stringify(json.user));
+        setAuthUser(json.user);
+      }
       setActiveId(logged.id);
       localStorage.setItem('fidelio_active_merchant_id', logged.id);
       await refreshState(logged.id);
@@ -722,6 +826,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleDarkMode: () => setDarkMode((d) => !d),
         skin,
         toggleSkin: () => setSkin((s) => (s === 'premium' ? 'classique' : 'premium')),
+        authUser,
+        isAuthenticated: Boolean(authUser),
+        logout,
       }}
     >
       {children}
