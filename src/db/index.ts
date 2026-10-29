@@ -7,6 +7,7 @@ import * as schema from './schema.ts';
 // Dynamic database credentials
 let currentDbUrl: string = '';
 let currentAuthToken: string | undefined = undefined;
+let currentD1Db: any = null;
 let activeClient: Client | null = null;
 let migrationDone = false;
 
@@ -19,7 +20,8 @@ export const isRemoteDb = Boolean(
   (typeof process !== 'undefined' &&
     process.env?.TURSO_DATABASE_URL &&
     process.env.TURSO_DATABASE_URL.startsWith('libsql://')) ||
-    currentDbUrl.startsWith('libsql://')
+    currentDbUrl.startsWith('libsql://') ||
+    Boolean(currentD1Db)
 );
 
 export const dbUrl =
@@ -27,6 +29,14 @@ export const dbUrl =
 
 export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(`fidelio_salt_${password}`).digest('hex');
+}
+
+export function setD1Database(d1: any): void {
+  if (d1 && d1 !== currentD1Db) {
+    currentD1Db = d1;
+    activeClient = createD1Client(d1);
+    migrationDone = false;
+  }
 }
 
 export function setTursoConfig(url: string, authToken?: string): void {
@@ -505,10 +515,97 @@ function createMemoryFallbackClient(): Client {
   } as unknown as Client;
 }
 
+export function createD1Client(d1: any): Client {
+  return {
+    async execute(stmt: any): Promise<ResultSet> {
+      const sql = typeof stmt === 'string' ? stmt : stmt.sql;
+      const rawArgs = typeof stmt === 'string' ? [] : stmt.args || [];
+      const args = Array.isArray(rawArgs) ? rawArgs : Object.values(rawArgs);
+
+      try {
+        const prepared = args.length > 0 ? d1.prepare(sql).bind(...args) : d1.prepare(sql);
+        const res = await prepared.all();
+        return {
+          columns: [],
+          columnTypes: [],
+          rows: res.results || [],
+          rowsAffected: res.meta?.changes ?? 0,
+          lastInsertRowid:
+            res.meta?.last_row_id !== undefined ? BigInt(res.meta.last_row_id) : undefined,
+        } as unknown as ResultSet;
+      } catch (err: any) {
+        if (sql.trim().toUpperCase().startsWith('PRAGMA')) {
+          return {
+            columns: [],
+            columnTypes: [],
+            rows: [],
+            rowsAffected: 0,
+            lastInsertRowid: undefined,
+          } as unknown as ResultSet;
+        }
+        throw err;
+      }
+    },
+    async executeMultiple(sql: string): Promise<void> {
+      if (typeof d1.exec === 'function') {
+        try {
+          await d1.exec(sql);
+          return;
+        } catch {
+          // Fallback to individual statements
+        }
+      }
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const s of statements) {
+        try {
+          await d1.prepare(s).run();
+        } catch (err) {
+          if (!String(err).includes('already exists') && !String(err).includes('duplicate column')) {
+            console.warn('[D1 Statement notice]', err);
+          }
+        }
+      }
+    },
+    async batch(stmts: any[]): Promise<ResultSet[]> {
+      const preparedList = stmts.map((s: any) => {
+        const sql = typeof s === 'string' ? s : s.sql;
+        const rawArgs = typeof s === 'string' ? [] : s.args || [];
+        const args = Array.isArray(rawArgs) ? rawArgs : Object.values(rawArgs);
+        return args.length > 0 ? d1.prepare(sql).bind(...args) : d1.prepare(sql);
+      });
+      const batchRes = await d1.batch(preparedList);
+      return batchRes.map((r: any) => ({
+        columns: [],
+        columnTypes: [],
+        rows: r.results || [],
+        rowsAffected: r.meta?.changes ?? 0,
+        lastInsertRowid:
+          r.meta?.last_row_id !== undefined ? BigInt(r.meta.last_row_id) : undefined,
+      })) as unknown as ResultSet[];
+    },
+    async transaction(): Promise<any> {
+      return this;
+    },
+    close() {},
+    closed: false,
+    protocol: 'd1',
+  } as unknown as Client;
+}
+
 export function getClient(): Client {
   if (activeClient) return activeClient;
 
-  // 1. Check if Turso cloud credentials are provided
+  // 1. Check if Cloudflare D1 database binding is provided
+  const d1Binding = currentD1Db || (globalThis as any).DB;
+  if (d1Binding) {
+    activeClient = createD1Client(d1Binding);
+    return activeClient;
+  }
+
+  // 2. Check if Turso cloud credentials are provided
   const tursoUrl =
     currentDbUrl || (typeof process !== 'undefined' ? process.env?.TURSO_DATABASE_URL : undefined);
   const tursoToken =
@@ -523,7 +620,7 @@ export function getClient(): Client {
     return activeClient;
   }
 
-  // 2. If running on Cloudflare Workers / Web standard isolate without TURSO_DATABASE_URL,
+  // 3. If running on Cloudflare Workers / Web standard isolate without D1 or Turso,
   // use MemoryDatabase to completely avoid URL_SCHEME_NOT_SUPPORTED on file: URLs.
   const isNode =
     typeof process !== 'undefined' &&
@@ -537,7 +634,7 @@ export function getClient(): Client {
     return activeClient;
   }
 
-  // 3. Running in Node.js (local dev / test): use local SQLite file
+  // 4. Running in Node.js (local dev / test): use local SQLite file
   try {
     const dataDir = path.resolve(process.cwd(), 'data');
     if (!fs.existsSync(dataDir)) {

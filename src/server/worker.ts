@@ -1,7 +1,8 @@
 import { handleWebRequest } from './apiRouter.ts';
-import { runMigrations, setTursoConfig } from '../db/index.ts';
+import { runMigrations, setTursoConfig, setD1Database } from '../db/index.ts';
 
 interface Env {
+  DB?: any;
   ASSETS?: { fetch: (req: Request) => Promise<Response> };
   TURSO_DATABASE_URL?: string;
   TURSO_AUTH_TOKEN?: string;
@@ -17,8 +18,10 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // Provide Turso credentials from Cloudflare Worker env if provided
-    if (env.TURSO_DATABASE_URL) {
+    // Provide Cloudflare D1 database binding if available
+    if (env.DB) {
+      setD1Database(env.DB);
+    } else if (env.TURSO_DATABASE_URL) {
       setTursoConfig(env.TURSO_DATABASE_URL, env.TURSO_AUTH_TOKEN);
     }
 

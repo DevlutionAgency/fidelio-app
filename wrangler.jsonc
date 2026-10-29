@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "fidelioapp",
+  "name": "fidelio-app",
   "main": "src/server/worker.ts",
   "compatibility_date": "2024-09-23",
   "compatibility_flags": ["nodejs_compat"],
@@ -8,5 +8,12 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fidelio-db",
+      "database_id": "214dcd67-cafe-41c7-9bca-abd6df2d824b"
+    }
+  ]
 }
