@@ -328,12 +328,7 @@ export function extractSessionUser(
     if (verified) return verified;
   }
 
-  const rawMid = headers?.['x-merchant-id'] || headers?.['X-Merchant-Id'];
-  if (rawMid) {
-    const mid = String(Array.isArray(rawMid) ? rawMid[0] : rawMid).trim();
-    if (mid) return { merchantId: mid };
-  }
-
+  // X-Merchant-Id is an establishment selector, NEVER an unauthenticated bypass credential
   return null;
 }
 
