@@ -964,6 +964,172 @@ async function internalHandleApiRequest(
     }
 
     /* ----------------------------------------------------------------------
+       POST /api/auth/password : Changement de mot de passe sécurisé
+       ---------------------------------------------------------------------- */
+    if (method === 'POST' && pathname === '/api/auth/password') {
+      const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+      if (!auth.ok) {
+        return { status: auth.status, data: { ok: false, error: auth.error } };
+      }
+      const { currentPassword, newPassword } = (body as any) || {};
+      if (!currentPassword || !newPassword || String(newPassword).length < 6) {
+        return {
+          status: 400,
+          data: { ok: false, error: 'Le nouveau mot de passe doit comporter au moins 6 caractères.' },
+        };
+      }
+      const merchant = await dbQueryOne<MerchantRow>('SELECT * FROM merchants WHERE id = ?', [
+        auth.merchantId,
+      ]);
+      if (!merchant) {
+        return { status: 404, data: { ok: false, error: 'Commerçant introuvable.' } };
+      }
+      if (merchant.password_hash !== hashPassword(currentPassword)) {
+        return { status: 401, data: { ok: false, error: 'Mot de passe actuel incorrect.' } };
+      }
+      await dbRun('UPDATE merchants SET password_hash = ? WHERE id = ?', [
+        hashPassword(newPassword),
+        merchant.id,
+      ]);
+      return { status: 200, data: { ok: true, message: 'Mot de passe mis à jour avec succès.' } };
+    }
+
+    /* ----------------------------------------------------------------------
+       ÉQUIPE : GET /api/team, POST /api/team, DELETE /api/team/:id
+       ---------------------------------------------------------------------- */
+    if (method === 'GET' && pathname === '/api/team') {
+      const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+      if (!auth.ok) return { status: auth.status, data: { ok: false, error: auth.error } };
+      const team = await dbQueryAll(
+        'SELECT * FROM team_members WHERE merchant_id = ? ORDER BY created_at DESC',
+        [auth.merchantId]
+      );
+      return { status: 200, data: { ok: true, team } };
+    }
+
+    if (method === 'POST' && pathname === '/api/team') {
+      const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+      if (!auth.ok) return { status: auth.status, data: { ok: false, error: auth.error } };
+      const { name, role, pinCode } = (body as any) || {};
+      if (!name || !String(name).trim()) {
+        return { status: 400, data: { ok: false, error: 'Le prénom de l’employé est requis.' } };
+      }
+      const id = `tm-${crypto.randomUUID().slice(0, 8)}`;
+      const now = new Date().toISOString();
+      await dbRun(
+        'INSERT INTO team_members (id, merchant_id, name, role, pin_code, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)',
+        [id, auth.merchantId, String(name).trim(), role || 'CAISSE', pinCode || '1234', now]
+      );
+      return {
+        status: 201,
+        data: {
+          ok: true,
+          member: {
+            id,
+            name: String(name).trim(),
+            role: role || 'CAISSE',
+            pinCode: pinCode || '1234',
+            is_active: 1,
+            created_at: now,
+          },
+        },
+      };
+    }
+
+    const deleteTeamMatch = pathname.match(/^\/api\/team\/([^/]+)$/);
+    if (method === 'DELETE' && deleteTeamMatch) {
+      const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+      if (!auth.ok) return { status: auth.status, data: { ok: false, error: auth.error } };
+      await dbRun('DELETE FROM team_members WHERE id = ? AND merchant_id = ?', [
+        deleteTeamMatch[1],
+        auth.merchantId,
+      ]);
+      return { status: 200, data: { ok: true } };
+    }
+
+    /* ----------------------------------------------------------------------
+       AVIS GOOGLE : GET /api/reviews/claims, POST /api/reviews/claims, PUT /api/reviews/claims/:id
+       ---------------------------------------------------------------------- */
+    if (method === 'GET' && pathname === '/api/reviews/claims') {
+      const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+      if (!auth.ok) return { status: auth.status, data: { ok: false, error: auth.error } };
+      const claims = await dbQueryAll(
+        `SELECT rc.*, c.name as customer_name, c.code as customer_code, c.phone as customer_phone
+         FROM google_review_claims rc
+         LEFT JOIN customers c ON c.id = rc.customer_id
+         WHERE rc.merchant_id = ?
+         ORDER BY rc.created_at DESC`,
+        [auth.merchantId]
+      );
+      return { status: 200, data: { ok: true, claims } };
+    }
+
+    if (method === 'POST' && pathname === '/api/reviews/claims') {
+      const { customerCode, merchantSlug } = (body as any) || {};
+      const customer = await dbQueryOne<CustomerRow>('SELECT * FROM customers WHERE code = ?', [
+        customerCode,
+      ]);
+      if (!customer) return { status: 404, data: { ok: false, error: 'Client introuvable.' } };
+      const id = `claim-${crypto.randomUUID().slice(0, 8)}`;
+      const now = new Date().toISOString();
+      await dbRun(
+        'INSERT INTO google_review_claims (id, merchant_id, customer_id, status, created_at) VALUES (?, ?, ?, ?, ?)',
+        [id, customer.merchant_id, customer.id, 'PENDING', now]
+      );
+      return {
+        status: 201,
+        data: { ok: true, claimId: id, message: 'Demande de bonus envoyée au commerçant.' },
+      };
+    }
+
+    const claimUpdateMatch = pathname.match(/^\/api\/reviews\/claims\/([^/]+)$/);
+    if (method === 'PUT' && claimUpdateMatch) {
+      const auth = await checkMerchantAuthorization(undefined, headers, urlObj);
+      if (!auth.ok) return { status: auth.status, data: { ok: false, error: auth.error } };
+      const claimId = claimUpdateMatch[1];
+      const { status } = (body as any) || {};
+      if (!['APPROVED', 'REJECTED'].includes(status)) {
+        return { status: 400, data: { ok: false, error: 'Statut invalide.' } };
+      }
+      const claim = await dbQueryOne<{ id: string; customer_id: string; merchant_id: string }>(
+        'SELECT * FROM google_review_claims WHERE id = ? AND merchant_id = ?',
+        [claimId, auth.merchantId]
+      );
+      if (!claim) return { status: 404, data: { ok: false, error: 'Demande introuvable.' } };
+      await dbRun('UPDATE google_review_claims SET status = ? WHERE id = ?', [status, claimId]);
+
+      if (status === 'APPROVED') {
+        const pair = await getMerchantWithProgram(auth.merchantId);
+        const bonus = pair?.program.google_review_bonus || 1;
+        await dbRun('UPDATE customers SET points = points + ?, google_review_done = 1 WHERE id = ?', [
+          bonus,
+          claim.customer_id,
+        ]);
+        await dbRun(
+          'INSERT INTO transactions (id, merchant_id, customer_id, type, delta, amount_dzd, operator, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            `tx-${crypto.randomUUID().slice(0, 8)}`,
+            auth.merchantId,
+            claim.customer_id,
+            'earn',
+            bonus,
+            0,
+            'Bonus Avis Google',
+            new Date().toISOString(),
+            new Date().toISOString(),
+          ]
+        );
+      }
+      return {
+        status: 200,
+        data: {
+          ok: true,
+          message: `Demande ${status === 'APPROVED' ? 'validée' : 'rejetée'} avec succès.`,
+        },
+      };
+    }
+
+    /* ----------------------------------------------------------------------
        FLUX B : GET /api/merchants/:idOrSlug & PUT /api/merchants/:id/program
        ---------------------------------------------------------------------- */
     const merchantProgramMatch = pathname.match(/^\/api\/merchants\/([^/]+)\/program$/);

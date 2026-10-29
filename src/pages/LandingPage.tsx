@@ -76,6 +76,18 @@ export const LandingPage: React.FC<{ initialLang?: Lang }> = ({ initialLang = 'f
   const [simError, setSimError] = useState<string | null>(null);
   const [simSuccess, setSimSuccess] = useState<string | null>(null);
 
+  // FAQ accordion state
+  const [faqOpenIdx, setFaqOpenIdx] = useState<number | null>(0);
+
+  // Demo modal state
+  const [demoModalOpen, setDemoModalOpen] = useState(false);
+  const [demoPrenom, setDemoPrenom] = useState('');
+  const [demoCommerce, setDemoCommerce] = useState('');
+  const [demoPhone, setDemoPhone] = useState('');
+  const [demoEmail, setDemoEmail] = useState('');
+  const [demoSubmitting, setDemoSubmitting] = useState(false);
+  const [demoSuccess, setDemoSuccess] = useState<string | null>(null);
+
   // Exact Pricing state from module 26545
   const [pdv, setPdv] = useState(1);
   const [rythme, setRythme] = useState<'mensuel' | 'semestriel' | 'annuel'>('mensuel');
@@ -372,12 +384,13 @@ export const LandingPage: React.FC<{ initialLang?: Lang }> = ({ initialLang = 'f
                       Commencer gratuitement
                       <ArrowRight className="h-4 w-4 rtl:-scale-x-100" />
                     </Link>
-                    <Link
-                      className="inline-flex min-h-14 items-center justify-center whitespace-nowrap rounded-2xl border-2 border-white/40 px-7 text-base font-bold text-white"
-                      to="/rendez-vous"
+                    <button
+                      type="button"
+                      onClick={() => setDemoModalOpen(true)}
+                      className="inline-flex min-h-14 items-center justify-center whitespace-nowrap rounded-2xl border-2 border-white/40 px-7 text-base font-bold text-white hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       Demander une démo
-                    </Link>
+                    </button>
                   </div>
                 </div>
 
@@ -1566,12 +1579,13 @@ export const LandingPage: React.FC<{ initialLang?: Lang }> = ({ initialLang = 'f
                       >
                         Commencer maintenant
                       </Link>
-                      <Link
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/40 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
-                        to="/rendez-vous"
+                      <button
+                        type="button"
+                        onClick={() => setDemoModalOpen(true)}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/40 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10 cursor-pointer"
                       >
                         Demander une démo
-                      </Link>
+                      </button>
                     </div>
                   </div>
 
@@ -1654,6 +1668,78 @@ export const LandingPage: React.FC<{ initialLang?: Lang }> = ({ initialLang = 'f
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ==============================================================
+              SECTION 10.5: FAQ INTERACTIVE (FOIRE AUX QUESTIONS)
+              ============================================================== */}
+          <section id="faq" className="border-t border-ink/[0.06] bg-cream py-16 sm:py-24">
+            <div className="mx-auto max-w-4xl px-6 sm:px-10">
+              <div className="text-center">
+                <StickerBadge rotate={-2} tone="coral" className="text-xs px-3 py-1">
+                  Questions fréquentes
+                </StickerBadge>
+                <h2 className="mt-4 font-impact text-3xl sm:text-5xl uppercase tracking-tight text-ink">
+                  Tout ce que vous devez savoir
+                </h2>
+                <p className="mt-3 text-sm text-ink/60">
+                  Des réponses simples et directes pour bien démarrer votre programme de fidélité.
+                </p>
+              </div>
+
+              <div className="mt-12 space-y-3">
+                {[
+                  {
+                    q: 'Comment mes clients installent-ils leur carte de fidélité ?',
+                    a: 'En un seul scan de votre QR code ou par simple tap sur votre plaque NFC posée en caisse. La carte s’ajoute instantanément à Apple Wallet ou Google Wallet en moins de 10 secondes, sans mot de passe à créer.',
+                  },
+                  {
+                    q: 'Mes clients ont-ils besoin de télécharger une application ?',
+                    a: 'Non, aucune application supplémentaire n’est requise. Fidelio s’intègre nativement dans Apple Wallet (iPhone) et Google Wallet (Android), déjà préinstallés sur l’ensemble des smartphones.',
+                  },
+                  {
+                    q: 'Comment fonctionne le scan en caisse ?',
+                    a: 'Depuis votre smartphone, tablette ou terminal de caisse, ouvrez simplement l’interface caisse Fidelio. Scannez le QR code présenté par le client ou saisissez manuellement son code C-XXXXXX pour ajouter des tampons en 1 clic.',
+                  },
+                  {
+                    q: 'Combien de temps faut-il pour démarrer ?',
+                    a: 'Moins de 2 minutes. Vous créez votre compte, personnalisez votre carte (couleur, logo, tampons et récompenses) et votre QR code est immédiatement prêt à être imprimé ou scanné.',
+                  },
+                  {
+                    q: 'Puis-je personnaliser le nombre de tampons et les cadeaux ?',
+                    a: 'Tout à fait ! Vous choisissez le barème (5, 6, 8, 10, 12 ou 15 tampons), vos récompenses offertes, ainsi que les bonus de parrainage et d’avis Google.',
+                  },
+                  {
+                    q: 'Puis-je envoyer des notifications et des messages à mes clients ?',
+                    a: 'Oui. Grâce aux pass Wallet, vous pouvez envoyer des notifications push directes sur l’écran de verrouillage de vos clients pour annoncer vos nouveautés, promotions ou événements exclusifs.',
+                  },
+                ].map((item, idx) => {
+                  const isOpen = faqOpenIdx === idx;
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-2xl border border-ink/[0.08] bg-white transition-all shadow-soft overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setFaqOpenIdx(isOpen ? null : idx)}
+                        className="flex w-full items-center justify-between p-5 text-left text-sm font-bold text-ink hover:text-coral transition-colors"
+                      >
+                        <span className="pr-4">{item.q}</span>
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/[0.04] text-ink">
+                          {isOpen ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-ink/[0.05] px-5 pb-5 pt-3 text-xs leading-relaxed text-ink/70">
+                          {item.a}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -1802,6 +1888,128 @@ export const LandingPage: React.FC<{ initialLang?: Lang }> = ({ initialLang = 'f
           </footer>
         </main>
       </div>
+
+      {/* Demo Request Modal */}
+      {demoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <button
+              type="button"
+              onClick={() => {
+                setDemoModalOpen(false);
+                setDemoSuccess(null);
+              }}
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/60 hover:bg-ink/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="text-center">
+              <StickerBadge rotate={-2} tone="coral" className="text-xs px-2.5 py-1">
+                Démonstration gratuite
+              </StickerBadge>
+              <h3 className="mt-2 font-impact text-2xl uppercase tracking-tight text-ink">
+                Demander une démo
+              </h3>
+              <p className="mt-1 text-xs text-ink/60">
+                Découvrez comment Fidelio booste le passage de vos clients en 15 minutes chrono.
+              </p>
+            </div>
+
+            {demoSuccess ? (
+              <div className="mt-6 rounded-2xl bg-emerald-50 border border-emerald-200 p-5 text-center space-y-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Check className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-bold text-emerald-800">{demoSuccess}</p>
+                <p className="text-xs text-emerald-700">Un conseiller vous contactera dans les plus brefs délais.</p>
+                <button
+                  type="button"
+                  onClick={() => setDemoModalOpen(false)}
+                  className="mt-3 inline-block rounded-xl bg-ink px-4 py-2 text-xs font-bold text-white"
+                >
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!demoPrenom || !demoCommerce || !demoPhone) return;
+                  setDemoSubmitting(true);
+                  const res = await submitLead({
+                    source: 'demo',
+                    prenom: demoPrenom,
+                    commerceName: demoCommerce,
+                    phone: demoPhone,
+                    email: demoEmail || undefined,
+                  });
+                  setDemoSubmitting(false);
+                  if (res.ok) {
+                    setDemoSuccess('Demande enregistrée avec succès !');
+                    setDemoPrenom('');
+                    setDemoCommerce('');
+                    setDemoPhone('');
+                    setDemoEmail('');
+                  }
+                }}
+                className="mt-5 space-y-3"
+              >
+                <div>
+                  <label className="block text-[11px] font-bold text-ink mb-1">Votre prénom *</label>
+                  <input
+                    type="text"
+                    required
+                    value={demoPrenom}
+                    onChange={(e) => setDemoPrenom(e.target.value)}
+                    placeholder="Walid"
+                    className="w-full rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 text-xs text-ink outline-none focus:border-coral"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-ink mb-1">Nom de votre commerce *</label>
+                  <input
+                    type="text"
+                    required
+                    value={demoCommerce}
+                    onChange={(e) => setDemoCommerce(e.target.value)}
+                    placeholder="Café des Arts"
+                    className="w-full rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 text-xs text-ink outline-none focus:border-coral"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-ink mb-1">Téléphone portable *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={demoPhone}
+                    onChange={(e) => setDemoPhone(e.target.value)}
+                    placeholder="06 12 34 56 78"
+                    className="w-full rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 text-xs text-ink outline-none focus:border-coral"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-ink mb-1">Email professionnel (facultatif)</label>
+                  <input
+                    type="email"
+                    value={demoEmail}
+                    onChange={(e) => setDemoEmail(e.target.value)}
+                    placeholder="contact@moncommerce.dz"
+                    className="w-full rounded-xl border border-ink/15 bg-white px-3.5 py-2.5 text-xs text-ink outline-none focus:border-coral"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={demoSubmitting}
+                  className="w-full mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-coral py-2.5 text-xs font-bold text-white shadow-hard-coral disabled:opacity-60"
+                >
+                  {demoSubmitting ? 'Envoi en cours...' : 'Planifier ma démo gratuite →'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

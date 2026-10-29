@@ -788,8 +788,19 @@ export const CustomersPage: React.FC = () => {
   const isImportUrl = location.pathname.startsWith('/clients-import');
   const [activeTab, setActiveTab] = useState<'list' | 'import'>(isImportUrl ? 'import' : 'list');
 
+  const [searchQuery, setSearchQuery] = useState('');
   const [csvText, setCsvText] = useState('');
   const [importDone, setImportDone] = useState<string | null>(null);
+
+  const filteredCustomers = customers.filter((c) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.phone || '').includes(q) ||
+      (c.code || '').toLowerCase().includes(q)
+    );
+  });
 
   const handleBulkImport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -886,9 +897,21 @@ export const CustomersPage: React.FC = () => {
         </div>
       ) : (
         <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft">
-          <div className="flex items-center gap-2 text-xs font-bold text-ink mb-4">
-            <Users className="h-4 w-4 text-ink/60" />
-            <span>Liste des clients ({customers.length})</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-ink">
+              <Users className="h-4 w-4 text-ink/60" />
+              <span>Liste des clients ({filteredCustomers.length})</span>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="h-3.5 w-3.5 text-ink/40 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher nom, code, tél..."
+                className="w-full rounded-xl border border-ink/10 bg-white pl-8 pr-3 py-1.5 text-xs text-ink placeholder:text-ink/40 outline-none focus:border-coral"
+              />
+            </div>
           </div>
 
           {customers.length === 0 ? (
@@ -900,6 +923,11 @@ export const CustomersPage: React.FC = () => {
               <p className="mt-0.5 text-[11px] text-ink/45">
                 Partagez votre QR code pour commencer
               </p>
+            </div>
+          ) : filteredCustomers.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-xs font-bold text-ink">Aucun résultat pour « {searchQuery} »</p>
+              <p className="text-[11px] text-ink/45 mt-1">Essayez un autre mot-clé ou réinitialisez la recherche.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -915,7 +943,7 @@ export const CustomersPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink/[0.06]">
-                  {customers.map((c) => {
+                  {filteredCustomers.map((c) => {
                     const cleanPhone = (c.phone || '').replace(/[^0-9]/g, '');
                     const waLink = cleanPhone ? `https://wa.me/${cleanPhone}` : undefined;
                     const firstName = (c.name || 'Client').split(' ')[0];
@@ -1615,6 +1643,33 @@ export const BrandingPage: React.FC = () => {
   const [stampIconIdx, setStampIconIdx] = useState(0);
   const [saved, setSaved] = useState(false);
 
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        void updateCommerce({ cardLogoImage: base64 });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        void updateCommerce({ cardCoverImage: base64 });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const ESTABLISHMENT_TYPES = [
     { label: 'Restaurant', icon: Utensils },
     { label: 'Café', icon: Coffee },
@@ -1663,8 +1718,25 @@ export const BrandingPage: React.FC = () => {
     Smartphone,
   ];
 
+  const SelectedStampIcon = STAMP_ICONS[stampIconIdx] || Check;
+
   return (
     <div className="space-y-5 pb-16">
+      <input
+        type="file"
+        ref={logoInputRef}
+        onChange={handleLogoUpload}
+        accept="image/*"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={coverInputRef}
+        onChange={handleCoverUpload}
+        accept="image/*"
+        className="hidden"
+      />
+
       <div>
         <div className="flex items-center gap-2.5">
           <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
@@ -1685,17 +1757,32 @@ export const BrandingPage: React.FC = () => {
         <div>
           <div
             style={{ backgroundColor: commerce.cardBgColor || '#1a1a1a' }}
-            className="w-[230px] rounded-[22px] p-4 text-white shadow-xl ring-1 ring-black/15 select-none"
+            className="w-[230px] rounded-[22px] p-4 text-white shadow-xl ring-1 ring-black/15 select-none relative overflow-hidden"
           >
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[10px] font-bold">
-                {commerce.name.charAt(0).toUpperCase()}
-              </div>
+            {topMode === 'photo' && commerce.cardCoverImage && (
+              <img
+                src={commerce.cardCoverImage}
+                alt="Bannière couverture"
+                className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
+              />
+            )}
+            <div className="relative z-10 flex items-center gap-2">
+              {commerce.cardLogoImage ? (
+                <img
+                  src={commerce.cardLogoImage}
+                  alt="Logo"
+                  className="h-6 w-6 rounded-full object-cover border border-white/20"
+                />
+              ) : (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-[10px] font-bold">
+                  {commerce.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <span className="text-xs font-bold truncate">{commerce.name}</span>
             </div>
 
             {/* Stamp circles grid */}
-            <div className="my-5 flex flex-wrap justify-center gap-2 px-2">
+            <div className="relative z-10 my-5 flex flex-wrap justify-center gap-2 px-2">
               {Array.from({ length: stampsCount }).map((_, idx) => {
                 const filled = idx < 4;
                 return (
@@ -1703,17 +1790,17 @@ export const BrandingPage: React.FC = () => {
                     key={idx}
                     className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
                       filled
-                        ? 'bg-white text-ink font-bold'
+                        ? 'bg-white text-ink font-bold shadow-sm'
                         : 'border border-white/20 text-white/30'
                     }`}
                   >
-                    {filled ? '✓' : ''}
+                    {filled ? <SelectedStampIcon className="h-3 w-3 text-ink" /> : ''}
                   </div>
                 );
               })}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-[8px] uppercase tracking-wider text-white/60">
+            <div className="relative z-10 grid grid-cols-2 gap-2 text-[8px] uppercase tracking-wider text-white/60">
               <div>
                 <p>PROCHAINE RÉCOMPENSE</p>
                 <p className="mt-0.5 text-[10px] font-bold normal-case text-white truncate">
@@ -1726,7 +1813,7 @@ export const BrandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-2.5 grid grid-cols-2 gap-2 text-[8px] uppercase tracking-wider text-white/60">
+            <div className="relative z-10 mt-2.5 grid grid-cols-2 gap-2 text-[8px] uppercase tracking-wider text-white/60">
               <div>
                 <p>TAMPONS</p>
                 <p className="mt-0.5 text-[11px] font-bold text-white">4 / {stampsCount}</p>
@@ -1739,7 +1826,7 @@ export const BrandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-4 flex justify-center">
+            <div className="relative z-10 mt-4 flex justify-center">
               <div className="rounded-xl bg-white p-2">
                 <QrCodeMatrix code="C-4F2A91" size={72} />
               </div>
@@ -1776,12 +1863,23 @@ export const BrandingPage: React.FC = () => {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white text-ink/45 hover:border-coral"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white text-ink/45 hover:border-coral overflow-hidden"
                 >
-                  <Upload className="h-4 w-4" />
+                  {commerce.cardLogoImage ? (
+                    <img src={commerce.cardLogoImage} alt="Logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
                 </button>
                 <div>
-                  <p className="text-xs font-bold text-coral">Ajouter un logo</p>
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="text-xs font-bold text-coral hover:underline text-left block"
+                  >
+                    {commerce.cardLogoImage ? 'Changer de logo' : 'Ajouter un logo'}
+                  </button>
                   <p className="text-[10px] text-ink/45">
                     Carré de préférence · redimensionné automatiquement
                   </p>
@@ -1891,13 +1989,26 @@ export const BrandingPage: React.FC = () => {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                className="flex h-12 w-16 flex-col items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white text-[10px] text-ink/45"
+                onClick={() => coverInputRef.current?.click()}
+                className="flex h-12 w-16 flex-col items-center justify-center rounded-xl border border-dashed border-ink/20 bg-white text-[10px] text-ink/45 hover:border-coral overflow-hidden"
               >
-                <Upload className="h-3.5 w-3.5" />
-                <span>Image</span>
+                {commerce.cardCoverImage ? (
+                  <img src={commerce.cardCoverImage} alt="Cover" className="h-full w-full object-cover" />
+                ) : (
+                  <>
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>Image</span>
+                  </>
+                )}
               </button>
               <div>
-                <p className="text-xs font-bold text-coral">Ajouter une image</p>
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="text-xs font-bold text-coral hover:underline text-left block"
+                >
+                  {commerce.cardCoverImage ? 'Changer d’image' : 'Ajouter une image'}
+                </button>
                 <p className="text-[10px] text-ink/45">
                   Visible si vous choisissez « Votre photo », ou au-delà de 12 cases.
                 </p>
@@ -1969,8 +2080,16 @@ export const BrandingPage: React.FC = () => {
         <button
           type="button"
           onClick={async () => {
-            const ok = await updateCommerce({ cardBgColor: commerce.cardBgColor });
-            if (ok) setSaved(true);
+            const ok = await updateCommerce({
+              cardBgColor: commerce.cardBgColor,
+              cardLogoImage: commerce.cardLogoImage,
+              cardCoverImage: commerce.cardCoverImage,
+              stampsTarget: stampsCount,
+            });
+            if (ok) {
+              setSaved(true);
+              setTimeout(() => setSaved(false), 2500);
+            }
           }}
           className="inline-flex items-center gap-2 rounded-xl bg-coral px-5 py-2.5 text-xs font-bold text-white shadow-hard-coral"
         >
@@ -2009,14 +2128,31 @@ export const ExtraDashboardPages: React.FC<{
     | 'conseiller'
     | 'admin';
 }> = ({ section }) => {
-  const { commerce, commerces, selectCommerce, employees, addEmployee, customers, updateCommerce } =
+  const { commerce, commerces, selectCommerce, employees, addEmployee, customers, updateCommerce, logout } =
     useStore();
   const location = useLocation();
 
   const [empName, setEmpName] = useState('');
+  const [empRole, setEmpRole] = useState<'CAISSE' | 'MANAGER'>('CAISSE');
+  const [empPin, setEmpPin] = useState('1234');
   const [respName, setRespName] = useState('');
   const [teamPeriod, setTeamPeriod] = useState<'7j' | '30j' | 'debut' | 'jour'>('30j');
   const [copied, setCopied] = useState(false);
+
+  // Avis Google Claims state
+  const [claims, setClaims] = useState<any[]>([]);
+  const [claimsLoading, setClaimsLoading] = useState(false);
+  const [claimsNotice, setClaimsNotice] = useState<string | null>(null);
+
+  // Team state (SQLite backed)
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+
+  // Password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordNotice, setPasswordNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   // API state
   const [apiKeyName, setApiKeyName] = useState('');
@@ -2054,6 +2190,181 @@ export const ExtraDashboardPages: React.FC<{
   const copyLink = (txt: string) => {
     navigator.clipboard.writeText(txt);
     setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadQrSvg = () => {
+    const svgEl = document.querySelector('.qr-matrix-container svg');
+    let svgContent = '';
+    if (svgEl) {
+      svgContent = new XMLSerializer().serializeToString(svgEl);
+    } else {
+      svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><rect width="200" height="200" fill="#ffffff"/><text x="100" y="100" text-anchor="middle" font-family="sans-serif" font-size="12">${joinUrl}</text></svg>`;
+    }
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fidelio-qrcode-${commerce.slug}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const fetchClaims = async () => {
+    setClaimsLoading(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fidelio_auth_token') : null;
+      const res = await fetch('/api/reviews/claims', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (data?.ok && Array.isArray(data.claims)) {
+        setClaims(data.claims);
+      }
+    } catch {
+      // Fallback
+    } finally {
+      setClaimsLoading(false);
+    }
+  };
+
+  const fetchTeam = async () => {
+    setTeamLoading(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fidelio_auth_token') : null;
+      const res = await fetch('/api/team', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (data?.ok && Array.isArray(data.team)) {
+        setTeamMembers(data.team);
+      }
+    } catch {
+      // Fallback
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (section === 'reviews') {
+      void fetchClaims();
+    } else if (section === 'caisses') {
+      void fetchTeam();
+    }
+  }, [section]);
+
+  const handleUpdateClaim = async (claimId: string, status: 'APPROVED' | 'REJECTED') => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fidelio_auth_token') : null;
+      const res = await fetch(`/api/reviews/claims/${claimId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data?.ok) {
+        setClaimsNotice(data.message || 'Mise à jour effectuée.');
+        void fetchClaims();
+      }
+    } catch {
+      setClaimsNotice('Erreur lors de la mise à jour.');
+    }
+  };
+
+  const handleSimulateClaim = async () => {
+    try {
+      if (customers.length === 0) {
+        setClaimsNotice("Créez d'abord au moins un client pour simuler une demande.");
+        return;
+      }
+      const firstCust = customers[0];
+      const res = await fetch('/api/reviews/claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerCode: firstCust.code, merchantSlug: commerce.slug }),
+      });
+      const data = await res.json();
+      if (data?.ok) {
+        setClaimsNotice("Demande client de test créée avec succès !");
+        void fetchClaims();
+      }
+    } catch {
+      setClaimsNotice("Erreur lors de la simulation.");
+    }
+  };
+
+  const handleAddTeamMember = async (name: string, role: 'CAISSE' | 'MANAGER', pin: string) => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fidelio_auth_token') : null;
+      const res = await fetch('/api/team', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ name, role, pinCode: pin }),
+      });
+      const data = await res.json();
+      if (data?.ok) {
+        addEmployee(name, commerce.name, pin);
+        void fetchTeam();
+      }
+    } catch {}
+  };
+
+  const handleDeleteTeamMember = async (id: string) => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fidelio_auth_token') : null;
+      await fetch(`/api/team/${id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      void fetchTeam();
+    } catch {}
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword) {
+      setPasswordNotice({ type: 'err', text: 'Veuillez saisir votre mot de passe actuel.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordNotice({ type: 'err', text: 'Le nouveau mot de passe doit comporter au moins 6 caractères.' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordNotice({ type: 'err', text: 'Les deux nouveaux mots de passe ne correspondent pas.' });
+      return;
+    }
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('fidelio_auth_token') : null;
+      const res = await fetch('/api/auth/password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok && data?.ok) {
+        setPasswordNotice({ type: 'ok', text: data.message || 'Mot de passe mis à jour avec succès.' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setPasswordNotice({ type: 'err', text: data?.error || 'Erreur lors du changement de mot de passe.' });
+      }
+    } catch {
+      setPasswordNotice({ type: 'err', text: 'Erreur réseau lors du changement de mot de passe.' });
+    }
   };
 
   /* --------------------------------------------------------------------------
@@ -2062,22 +2373,106 @@ export const ExtraDashboardPages: React.FC<{
   if (section === 'reviews') {
     return (
       <div className="space-y-4">
-        <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
-          AVIS GOOGLE
-        </h1>
-        <p className="text-xs text-ink/60">
-          Validez les demandes de bonus <strong className="text-ink">après avoir vérifié l&apos;avis Google</strong>. Chaque client ne peut être crédité qu&apos;une seule fois.
-        </p>
-
-        <div className="py-14 flex flex-col items-center justify-center text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink/[0.04] text-ink/40">
-            <Inbox className="h-5 w-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="font-impact text-3xl sm:text-4xl uppercase tracking-tight text-ink">
+              AVIS GOOGLE
+            </h1>
+            <p className="text-xs text-ink/60">
+              Validez les demandes de bonus <strong className="text-ink">après avoir vérifié l&apos;avis Google</strong>. Chaque client ne peut être crédité qu&apos;une seule fois.
+            </p>
           </div>
-          <p className="mt-3 text-xs font-bold text-ink">Aucune demande en attente</p>
-          <p className="mt-0.5 text-[11px] text-ink/45">
-            Les demandes de bonus avis de vos clients apparaîtront ici.
-          </p>
+          <button
+            type="button"
+            onClick={handleSimulateClaim}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-coral/30 bg-coral/10 px-3.5 py-2 text-xs font-bold text-coral hover:bg-coral/20 self-start"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Simuler une demande client
+          </button>
         </div>
+
+        {claimsNotice && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+            {claimsNotice}
+          </div>
+        )}
+
+        {claimsLoading ? (
+          <div className="py-12 text-center text-xs text-ink/40">Chargement des demandes...</div>
+        ) : claims.length === 0 ? (
+          <div className="rounded-2xl border border-ink/[0.08] bg-white py-14 flex flex-col items-center justify-center text-center shadow-soft">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink/[0.04] text-ink/40">
+              <Inbox className="h-5 w-5" />
+            </div>
+            <p className="mt-3 text-xs font-bold text-ink">Aucune demande en attente</p>
+            <p className="mt-0.5 text-[11px] text-ink/45">
+              Les demandes de bonus avis de vos clients apparaîtront ici.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-ink/[0.08] bg-ink/[0.02] text-[10px] font-bold uppercase tracking-wider text-ink/60">
+                  <th className="py-3 px-4">Client</th>
+                  <th className="py-3 px-4">Code</th>
+                  <th className="py-3 px-4">Téléphone</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Statut</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/[0.06]">
+                {claims.map((claim) => (
+                  <tr key={claim.id} className="hover:bg-ink/[0.01]">
+                    <td className="py-3 px-4 font-bold text-ink">{claim.customer_name || 'Client anonyme'}</td>
+                    <td className="py-3 px-4 font-mono text-[11px] text-ink/70">{claim.customer_code || 'C-XXXXXX'}</td>
+                    <td className="py-3 px-4 text-ink/60">{claim.customer_phone || '—'}</td>
+                    <td className="py-3 px-4 text-ink/50 text-[11px]">
+                      {claim.created_at ? new Date(claim.created_at).toLocaleDateString('fr-FR') : 'Récent'}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          claim.status === 'APPROVED'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : claim.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {claim.status === 'APPROVED' ? 'Validé' : claim.status === 'REJECTED' ? 'Refusé' : 'En attente'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right space-x-1.5">
+                      {claim.status === 'PENDING' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateClaim(claim.id, 'APPROVED')}
+                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
+                          >
+                            <Check className="h-3 w-3" /> Valider
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateClaim(claim.id, 'REJECTED')}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600 hover:bg-red-100"
+                          >
+                            Refuser
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-ink/40">Traité</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     );
   }
@@ -2089,6 +2484,7 @@ export const ExtraDashboardPages: React.FC<{
     const isResponsablesTab = location.pathname.startsWith('/equipe');
 
     if (isResponsablesTab) {
+      const managers = teamMembers.filter((m) => m.role === 'MANAGER');
       return (
         <div className="max-w-lg space-y-4">
           <p className="text-xs text-ink/55">
@@ -2097,10 +2493,10 @@ export const ExtraDashboardPages: React.FC<{
           </p>
 
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!respName.trim()) return;
-              addEmployee(respName, commerce.name, 'RESP');
+              await handleAddTeamMember(respName, 'MANAGER', '9999');
               setRespName('');
             }}
             className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3"
@@ -2132,17 +2528,40 @@ export const ExtraDashboardPages: React.FC<{
             </div>
           </form>
 
-          <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-1.5">
-            <p className="text-xs font-bold text-ink">Responsables actifs</p>
-            <p className="text-xs text-ink/50">
-              Personne pour l&apos;instant. Vous êtes seul à accéder à ce point de vente.
-            </p>
+          <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-2">
+            <p className="text-xs font-bold text-ink">Responsables actifs ({managers.length})</p>
+            {managers.length === 0 ? (
+              <p className="text-xs text-ink/50">
+                Personne pour l&apos;instant. Vous êtes seul à accéder à ce point de vente.
+              </p>
+            ) : (
+              <div className="divide-y divide-ink/[0.06]">
+                {managers.map((m) => (
+                  <div key={m.id} className="py-2.5 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-ink">{m.name}</span>
+                      <span className="ml-2 text-[10px] text-ink/40">PIN: {m.pin_code || '****'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTeamMember(m.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       );
     }
 
     // Tab 1: Caisses employé (/caisses) — Screenshot 6
+    const caissiers = teamMembers.filter((m) => m.role === 'CAISSE' || !m.role);
+    const displayEmployees = caissiers.length > 0 ? caissiers : employees;
+
     return (
       <div className="max-w-lg space-y-4">
         <p className="text-xs text-ink/55">
@@ -2151,10 +2570,10 @@ export const ExtraDashboardPages: React.FC<{
 
         {/* Card 1: Nouvelle caisse */}
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!empName.trim()) return;
-            addEmployee(empName, commerce.name, '1234');
+            await handleAddTeamMember(empName, 'CAISSE', empPin);
             setEmpName('');
           }}
           className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3"
@@ -2163,27 +2582,40 @@ export const ExtraDashboardPages: React.FC<{
             <Plus className="h-3.5 w-3.5" />
             <span>Nouvelle caisse</span>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-ink/60 mb-1">
-              Prénom de l&apos;employé
-            </label>
-            <div className="flex gap-2">
+          <div className="grid sm:grid-cols-[1fr_100px] gap-2">
+            <div>
+              <label className="block text-[10px] font-bold text-ink/60 mb-1">
+                Prénom de l&apos;employé
+              </label>
               <input
                 type="text"
                 value={empName}
                 onChange={(e) => setEmpName(e.target.value)}
                 placeholder="Youssef"
-                className="flex-1 rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
+                className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
               />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-coral px-4 py-2 text-xs font-bold text-white shadow-hard-coral"
-              >
-                <ScanLine className="h-3.5 w-3.5" />
-                Créer
-              </button>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-ink/60 mb-1">
+                Code PIN
+              </label>
+              <input
+                type="text"
+                maxLength={4}
+                value={empPin}
+                onChange={(e) => setEmpPin(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="1234"
+                className="w-full rounded-xl border border-ink/10 bg-white px-3 py-2 text-center text-xs font-mono font-bold text-ink"
+              />
             </div>
           </div>
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-coral px-4 py-2 text-xs font-bold text-white shadow-hard-coral"
+          >
+            <ScanLine className="h-3.5 w-3.5" />
+            Créer
+          </button>
         </form>
 
         {/* Card 2: Classement de l'équipe */}
@@ -2230,18 +2662,30 @@ export const ExtraDashboardPages: React.FC<{
 
         {/* Card 3: Caisses actives */}
         <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-2">
-          <p className="text-xs font-bold text-ink">Caisses actives</p>
-          {employees.length === 0 ? (
+          <p className="text-xs font-bold text-ink">Caisses actives ({displayEmployees.length})</p>
+          {displayEmployees.length === 0 ? (
             <p className="text-xs text-ink/50">
               Aucune caisse pour l&apos;instant. Vous continuez à encaisser normalement depuis votre
               propre compte.
             </p>
           ) : (
             <div className="divide-y divide-ink/[0.06]">
-              {employees.map((emp) => (
-                <div key={emp.id} className="py-2 flex items-center justify-between text-xs">
-                  <span className="font-bold text-ink">{emp.name}</span>
-                  <span className="text-emerald-700 font-semibold">Active</span>
+              {displayEmployees.map((emp) => (
+                <div key={emp.id} className="py-2.5 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-ink">{emp.name}</span>
+                    <span className="ml-2 text-[10px] font-mono text-ink/40">PIN: {emp.pin_code || emp.pinCode || '1234'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-emerald-700 font-semibold text-[11px]">Active</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTeamMember(emp.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2267,7 +2711,7 @@ export const ExtraDashboardPages: React.FC<{
         </div>
 
         <div className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-soft flex flex-col items-center text-center">
-          <div className="rounded-2xl border-[3px] border-ink p-3 bg-white">
+          <div className="rounded-2xl border-[3px] border-ink p-3 bg-white qr-matrix-container">
             <QrCodeMatrix code={joinUrl} size={148} />
           </div>
 
@@ -2285,7 +2729,7 @@ export const ExtraDashboardPages: React.FC<{
             </button>
             <button
               type="button"
-              onClick={() => copyLink(joinUrl)}
+              onClick={downloadQrSvg}
               className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-coral py-2.5 text-xs font-bold text-white shadow-hard-coral"
             >
               <Download className="h-3.5 w-3.5" />
@@ -3066,17 +3510,32 @@ export const ExtraDashboardPages: React.FC<{
       </button>
 
       {/* Card 3: Mot de passe */}
-      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
+      <form onSubmit={handlePasswordChange} className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold text-ink">
           <KeyRound className="h-3.5 w-3.5 text-coral" />
           <span>Mot de passe</span>
         </div>
+
+        {passwordNotice && (
+          <div
+            className={`rounded-xl p-2.5 text-xs font-semibold ${
+              passwordNotice.type === 'ok'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}
+          >
+            {passwordNotice.text}
+          </div>
+        )}
 
         <div>
           <label className="block text-[10px] font-bold text-ink mb-1">Mot de passe actuel</label>
           <div className="relative">
             <input
               type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
               className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
             />
             <Eye className="h-3.5 w-3.5 text-ink/35 absolute right-3 top-1/2 -translate-y-1/2" />
@@ -3088,6 +3547,9 @@ export const ExtraDashboardPages: React.FC<{
           <div className="relative">
             <input
               type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="•••••••• (6 car. min)"
               className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
             />
             <Eye className="h-3.5 w-3.5 text-ink/35 absolute right-3 top-1/2 -translate-y-1/2" />
@@ -3100,28 +3562,42 @@ export const ExtraDashboardPages: React.FC<{
           </label>
           <input
             type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="••••••••"
             className="w-full rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink"
           />
         </div>
 
         <button
-          type="button"
+          type="submit"
           className="inline-flex items-center gap-1.5 rounded-xl bg-coral px-4 py-2.5 text-xs font-bold text-white shadow-hard-coral"
         >
           <KeyRound className="h-3.5 w-3.5" />
           Changer le mot de passe
         </button>
-      </div>
+      </form>
 
-      {/* Card 4: Résiliation */}
-      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-1.5">
+      {/* Card 4: Résiliation & Déconnexion */}
+      <div className="rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-soft space-y-3">
         <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
           <XCircle className="h-3.5 w-3.5 text-ink/45" />
-          <span>Résiliation</span>
+          <span>Session & Résiliation</span>
         </div>
         <p className="text-[11px] text-ink/50">
           Aucun abonnement payant sur ce compte : rien ne vous sera prélevé.
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            window.location.href = '/connexion';
+          }}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50/50 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
+        >
+          <Lock className="h-3.5 w-3.5" />
+          Se déconnecter de Fidelio
+        </button>
       </div>
     </div>
   );
