@@ -56,8 +56,12 @@ export function isCloudflareRuntime(): boolean {
 class MemoryDatabase {
   merchants: any[] = [];
   loyalty_programs: any[] = [];
+  rewards: any[] = [];
   customers: any[] = [];
   transactions: any[] = [];
+  team_members: any[] = [];
+  notifications: any[] = [];
+  google_review_claims: any[] = [];
   leads: any[] = [];
 
   constructor() {
@@ -267,6 +271,34 @@ class MemoryDatabase {
           return [];
         }
         return [...this.transactions].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      }
+
+      if (s.includes('FROM REWARDS')) {
+        if (s.includes('WHERE') && s.includes('MERCHANT_ID')) {
+          return this.rewards.filter((r) => r.merchant_id === argsArray[0]);
+        }
+        return [...this.rewards];
+      }
+
+      if (s.includes('FROM TEAM_MEMBERS')) {
+        if (s.includes('WHERE') && s.includes('MERCHANT_ID')) {
+          return this.team_members.filter((m) => m.merchant_id === argsArray[0]);
+        }
+        return [...this.team_members];
+      }
+
+      if (s.includes('FROM NOTIFICATIONS')) {
+        if (s.includes('WHERE') && s.includes('MERCHANT_ID')) {
+          return this.notifications.filter((n) => n.merchant_id === argsArray[0]);
+        }
+        return [...this.notifications];
+      }
+
+      if (s.includes('FROM GOOGLE_REVIEW_CLAIMS')) {
+        if (s.includes('WHERE') && s.includes('MERCHANT_ID')) {
+          return this.google_review_claims.filter((c) => c.merchant_id === argsArray[0]);
+        }
+        return [...this.google_review_claims];
       }
 
       if (s.includes('FROM LEADS')) {
@@ -558,70 +590,124 @@ export async function runMigrations(): Promise<void> {
       }
 
       await cli.executeMultiple(`
+        DROP TABLE IF EXISTS users;
+
         CREATE TABLE IF NOT EXISTS merchants (
           id TEXT PRIMARY KEY,
+          owner_id TEXT,
           name TEXT NOT NULL,
           slug TEXT NOT NULL UNIQUE,
-          email TEXT NOT NULL UNIQUE,
-          phone TEXT NOT NULL,
-          password_hash TEXT NOT NULL,
+          phone TEXT NOT NULL DEFAULT '',
+          currency TEXT NOT NULL DEFAULT 'MAD',
+          logo_url TEXT DEFAULT '/brand/logo-mark.png',
+          business_type TEXT DEFAULT 'Commerce',
+          primary_color TEXT NOT NULL DEFAULT '#f85b04',
+          header_mode TEXT NOT NULL DEFAULT 'stamps',
+          stamp_icon TEXT DEFAULT 'star',
+          created_at TEXT NOT NULL,
+          email TEXT UNIQUE,
+          password_hash TEXT,
           category TEXT NOT NULL DEFAULT 'Restaurant',
           address TEXT NOT NULL DEFAULT 'Alger',
           card_bg_color TEXT NOT NULL DEFAULT '#1a1a1a',
           card_accent_color TEXT NOT NULL DEFAULT '#f85b04',
           card_cover_image TEXT NOT NULL DEFAULT '/landing/cartes/ongles.webp',
           card_logo_image TEXT NOT NULL DEFAULT '/brand/logo-mark.png',
-          google_review_url TEXT NOT NULL DEFAULT 'https://search.google.com/local/writereview?placeid=',
-          geo_notification_text TEXT NOT NULL DEFAULT 'Un café vous attend chez nous ☕',
-          created_at TEXT NOT NULL
+          google_review_url TEXT NOT NULL DEFAULT '',
+          geo_notification_text TEXT NOT NULL DEFAULT 'Un café vous attend chez nous ☕'
         );
 
         CREATE TABLE IF NOT EXISTS loyalty_programs (
           id TEXT PRIMARY KEY,
           merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-          name TEXT NOT NULL,
+          max_stamps INTEGER NOT NULL DEFAULT 10,
+          referral_bonus INTEGER NOT NULL DEFAULT 0,
+          google_review_bonus INTEGER NOT NULL DEFAULT 0,
+          google_review_url TEXT DEFAULT '',
+          is_review_bonus_active INTEGER NOT NULL DEFAULT 0,
+          name TEXT NOT NULL DEFAULT 'Programme Fidélité',
           mode TEXT NOT NULL DEFAULT 'tampons',
           points_per_dzd INTEGER NOT NULL DEFAULT 1,
           stamps_per_visit INTEGER NOT NULL DEFAULT 1,
           stamps_target INTEGER NOT NULL DEFAULT 10,
           welcome_bonus INTEGER NOT NULL DEFAULT 0,
-          referral_bonus INTEGER NOT NULL DEFAULT 0,
-          google_review_bonus INTEGER NOT NULL DEFAULT 0,
           rewards_json TEXT NOT NULL DEFAULT '[]',
           updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS rewards (
+          id TEXT PRIMARY KEY,
+          merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          stamps_required INTEGER NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS customers (
           id TEXT PRIMARY KEY,
           merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-          code TEXT NOT NULL UNIQUE,
-          name TEXT NOT NULL,
+          first_name TEXT NOT NULL DEFAULT '',
           phone TEXT NOT NULL,
+          code TEXT NOT NULL UNIQUE,
+          current_stamps INTEGER NOT NULL DEFAULT 0,
+          total_visits INTEGER NOT NULL DEFAULT 1,
+          total_spent INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          name TEXT NOT NULL DEFAULT '',
           email TEXT NOT NULL DEFAULT '',
           points INTEGER NOT NULL DEFAULT 0,
           visits INTEGER NOT NULL DEFAULT 1,
-          total_spent INTEGER NOT NULL DEFAULT 0,
           wallet_added TEXT NOT NULL DEFAULT 'web',
           google_review_done INTEGER NOT NULL DEFAULT 0,
           unlocked_rewards_json TEXT NOT NULL DEFAULT '[]',
-          member_since TEXT NOT NULL,
-          last_visit TEXT NOT NULL,
-          created_at TEXT NOT NULL
+          member_since TEXT,
+          last_visit TEXT
         );
 
         CREATE TABLE IF NOT EXISTS transactions (
           id TEXT PRIMARY KEY,
           merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
           customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-          customer_code TEXT NOT NULL,
-          customer_name TEXT NOT NULL,
+          staff_id TEXT,
           type TEXT NOT NULL,
-          delta INTEGER NOT NULL,
+          delta_stamps INTEGER NOT NULL DEFAULT 1,
+          amount INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          customer_code TEXT NOT NULL DEFAULT '',
+          customer_name TEXT NOT NULL DEFAULT '',
+          delta INTEGER NOT NULL DEFAULT 1,
           amount_dzd INTEGER NOT NULL DEFAULT 0,
           reward_title TEXT,
           unlocked_reward TEXT,
           operator TEXT NOT NULL DEFAULT 'Caisse Principale',
-          reference TEXT,
+          reference TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS team_members (
+          id TEXT PRIMARY KEY,
+          merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'CAISSE',
+          pin_code TEXT NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS notifications (
+          id TEXT PRIMARY KEY,
+          merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          target_url TEXT,
+          sent_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS google_review_claims (
+          id TEXT PRIMARY KEY,
+          merchant_id TEXT NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+          customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          status TEXT NOT NULL DEFAULT 'PENDING',
           created_at TEXT NOT NULL
         );
 
@@ -641,6 +727,34 @@ export async function runMigrations(): Promise<void> {
           created_at TEXT NOT NULL
         );
       `);
+
+      // Safe column additions for pre-existing SQLite databases
+      const safeAlter = async (sql: string) => {
+        try {
+          await cli.execute(sql);
+        } catch {
+          // duplicate column name or already present
+        }
+      };
+
+      await safeAlter(`ALTER TABLE merchants ADD COLUMN owner_id TEXT;`);
+      await safeAlter(`ALTER TABLE merchants ADD COLUMN currency TEXT NOT NULL DEFAULT 'MAD';`);
+      await safeAlter(`ALTER TABLE merchants ADD COLUMN logo_url TEXT DEFAULT '/brand/logo-mark.png';`);
+      await safeAlter(`ALTER TABLE merchants ADD COLUMN business_type TEXT DEFAULT 'Commerce';`);
+      await safeAlter(`ALTER TABLE merchants ADD COLUMN primary_color TEXT NOT NULL DEFAULT '#f85b04';`);
+      await safeAlter(`ALTER TABLE merchants ADD COLUMN header_mode TEXT NOT NULL DEFAULT 'stamps';`);
+      await safeAlter(`ALTER TABLE merchants ADD COLUMN stamp_icon TEXT DEFAULT 'star';`);
+
+      await safeAlter(`ALTER TABLE loyalty_programs ADD COLUMN max_stamps INTEGER NOT NULL DEFAULT 10;`);
+      await safeAlter(`ALTER TABLE loyalty_programs ADD COLUMN is_review_bonus_active INTEGER NOT NULL DEFAULT 0;`);
+
+      await safeAlter(`ALTER TABLE customers ADD COLUMN first_name TEXT NOT NULL DEFAULT '';`);
+      await safeAlter(`ALTER TABLE customers ADD COLUMN current_stamps INTEGER NOT NULL DEFAULT 0;`);
+      await safeAlter(`ALTER TABLE customers ADD COLUMN total_visits INTEGER NOT NULL DEFAULT 1;`);
+
+      await safeAlter(`ALTER TABLE transactions ADD COLUMN staff_id TEXT;`);
+      await safeAlter(`ALTER TABLE transactions ADD COLUMN delta_stamps INTEGER NOT NULL DEFAULT 1;`);
+      await safeAlter(`ALTER TABLE transactions ADD COLUMN amount INTEGER NOT NULL DEFAULT 0;`);
 
       const now = new Date().toISOString();
 
