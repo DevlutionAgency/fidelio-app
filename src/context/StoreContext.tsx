@@ -1,11 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import {
-  signInWithGooglePopup,
-  syncMerchantToFirestore,
-  syncCustomerToFirestore,
-  syncTransactionToFirestore,
-  syncLeadToFirestore,
-} from '../lib/firebase.ts';
 
 export type ProgramMode = 'points' | 'tampons';
 
@@ -146,7 +139,7 @@ interface StoreContextType {
     email: string;
     password: string;
   }) => Promise<{ ok: boolean; error?: string; merchant?: CommerceSettings }>;
-  loginWithGoogle: () => Promise<{ ok: boolean; error?: string; merchant?: CommerceSettings }>;
+  loginWithGoogle: (emailHint?: string) => Promise<{ ok: boolean; error?: string; merchant?: CommerceSettings }>;
   logout: () => void;
   submitLead: (input: {
     source: 'demo' | 'simulateur' | 'demarrer';
@@ -419,7 +412,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (json.token) {
         localStorage.setItem('fidelio_auth_token', json.token);
       }
-      setCommerces((prev) => [...prev, created]);
+      setCommerces([created]);
       setActiveId(created.id);
       localStorage.setItem('fidelio_active_merchant_id', created.id);
       await refreshState(created.id);
@@ -450,10 +443,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (json.token) {
         localStorage.setItem('fidelio_auth_token', json.token);
       }
+      setCommerces([logged]);
       setActiveId(logged.id);
       localStorage.setItem('fidelio_active_merchant_id', logged.id);
       await refreshState(logged.id);
-      void syncMerchantToFirestore(logged);
       return { ok: true, merchant: logged };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Erreur réseau';
@@ -464,24 +457,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (emailHint?: string) => {
     try {
       setLoading(true);
-      const googleRes = await signInWithGooglePopup();
-      if (!googleRes.ok || !googleRes.user) {
-        const errMsg = googleRes.error || 'Connexion Google annulée';
-        setApiError(errMsg);
-        return { ok: false, error: errMsg };
+      let email = emailHint?.trim();
+      if (!email && typeof window !== 'undefined') {
+        const input = window.prompt(
+          'Entrez l’adresse email de votre compte Google / Gmail pour continuer :'
+        );
+        if (!input || !input.trim()) {
+          return { ok: false, error: 'Connexion Google annulée.' };
+        }
+        email = input.trim();
+      }
+
+      if (!email) {
+        return { ok: false, error: 'Adresse email requise pour la connexion Google.' };
       }
 
       const { ok, data: json, error } = await safeFetchJson('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: googleRes.user.email,
-          name: googleRes.user.displayName,
-          googleId: googleRes.user.uid,
-          photoURL: googleRes.user.photoURL,
+          email,
+          name: email.split('@')[0],
+          googleId: `google_${Date.now()}`,
+          photoURL: '/brand/logo-mark.png',
         }),
       });
 
@@ -495,10 +496,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (json.token) {
         localStorage.setItem('fidelio_auth_token', json.token);
       }
+      setCommerces([logged]);
       setActiveId(logged.id);
       localStorage.setItem('fidelio_active_merchant_id', logged.id);
       await refreshState(logged.id);
-      void syncMerchantToFirestore(logged);
       return { ok: true, merchant: logged };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Erreur réseau';
@@ -543,7 +544,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { ok: false, error: error || json?.error || 'Données invalides' };
       }
       setLeads((prev) => [json.lead, ...prev]);
-      void syncLeadToFirestore(json.lead);
       return { ok: true, lead: json.lead as LeadRecord };
     } catch (err) {
       return {
@@ -604,7 +604,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       const created: Customer = json.customer;
       setCustomers((prev) => [created, ...prev.filter((x) => x.id !== created.id)]);
-      void syncCustomerToFirestore(created);
       return { ok: true, customer: created };
     } catch (err) {
       return {
@@ -652,10 +651,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? prev.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))
           : [updatedCustomer, ...prev];
       });
-      void syncCustomerToFirestore(updatedCustomer);
       if (createdTx) {
         setTransactions((prev) => [createdTx, ...prev]);
-        void syncTransactionToFirestore(createdTx);
       }
       if (type === 'redeem' && rewardTitle) {
         setRewards((prev) =>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Smartphone,
@@ -458,9 +458,11 @@ export const AuthOnboardingPage: React.FC<{
   const navigate = useNavigate();
   const { registerMerchant, loginMerchant, loginWithGoogle, submitLead } = useStore();
 
+  const [searchParams] = useSearchParams();
+
   // Form states
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => searchParams.get('email') || '');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -468,10 +470,17 @@ export const AuthOnboardingPage: React.FC<{
   const [consentementCndp, setConsentementCndp] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    if (emailParam && !email) {
+      setEmail(emailParam);
+    }
+  }, [searchParams, email]);
+
   const handleGoogleSignIn = async () => {
     setFormError(null);
     setGoogleLoading(true);
-    const res = await loginWithGoogle();
+    const res = await loginWithGoogle(email.trim() || undefined);
     setGoogleLoading(false);
     if (!res.ok) {
       setFormError(res.error || 'Erreur lors de la connexion Google');
@@ -1867,8 +1876,16 @@ export const AuthOnboardingPage: React.FC<{
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs font-bold text-red-700">
-                  {formError}
+                <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs font-bold text-red-700 flex flex-col gap-1.5">
+                  <div>{formError}</div>
+                  {formError.includes('existe déjà') && (
+                    <Link
+                      to={`/login${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+                      className="underline text-coral hover:text-coral-dark font-extrabold flex items-center gap-1"
+                    >
+                      👉 Cliquez ici pour vous connecter directement
+                    </Link>
+                  )}
                 </div>
               )}
 

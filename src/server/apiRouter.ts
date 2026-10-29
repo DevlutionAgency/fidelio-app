@@ -432,15 +432,20 @@ async function internalHandleApiRequest(
         };
       }
 
-      // Restrict commerces list to the user's own establishments
+      // Restrict commerces list strictly to the user's own establishments
       let allowedMerchants: MerchantRow[] = [];
       if (session) {
         const currentMerchant =
           (await dbQueryOne<MerchantRow>('SELECT * FROM merchants WHERE id = ?', [session.merchantId])) ||
           activePair.merchant;
+        const emailFilter = (currentMerchant.email || '').trim().toLowerCase();
         allowedMerchants = await dbQueryAll<MerchantRow>(
-          'SELECT * FROM merchants WHERE id = ? OR LOWER(email) = LOWER(?) ORDER BY created_at ASC',
-          [currentMerchant.id, currentMerchant.email]
+          `SELECT * FROM merchants 
+           WHERE id = ? 
+              OR (owner_id IS NOT NULL AND owner_id = ?)
+              OR (? != '' AND email IS NOT NULL AND LOWER(email) = ?)
+           ORDER BY created_at ASC`,
+          [currentMerchant.id, currentMerchant.id, emailFilter, emailFilter]
         );
       } else {
         allowedMerchants = [activePair.merchant];

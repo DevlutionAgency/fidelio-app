@@ -15,7 +15,6 @@
   "dependencies": {
     "@libsql/client": "^0.18.0",
     "drizzle-orm": "^0.45.4",
-    "firebase": "^13.1.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.475.0",
     "qrcode.react": "^4.2.0",

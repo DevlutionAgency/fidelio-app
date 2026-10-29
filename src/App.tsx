@@ -5,13 +5,14 @@ import { LandingPage } from './pages/LandingPage';
 import { DashboardLayout } from './components/DashboardLayout';
 import {
   DashboardHome,
-  ScanPage,
   CustomersPage,
   RewardsPage,
   NotificationsPage,
   BrandingPage,
   ExtraDashboardPages,
 } from './pages/DashboardPages';
+
+const ScanPage = React.lazy(() => import('./pages/ScanPage'));
 import { CustomerCardPublicPage, AuthOnboardingPage } from './pages/PublicAndAuthPages';
 
 export const App: React.FC = () => {
@@ -97,7 +98,9 @@ export const App: React.FC = () => {
             path="/scan"
             element={
               <DashboardLayout>
-                <ScanPage />
+                <React.Suspense fallback={<div className="flex min-h-[400px] items-center justify-center text-sm font-semibold text-ink/40">Chargement de la caisse...</div>}>
+                  <ScanPage />
+                </React.Suspense>
               </DashboardLayout>
             }
           />
@@ -105,7 +108,9 @@ export const App: React.FC = () => {
             path="/caisse"
             element={
               <DashboardLayout>
-                <ScanPage />
+                <React.Suspense fallback={<div className="flex min-h-[400px] items-center justify-center text-sm font-semibold text-ink/40">Chargement de la caisse...</div>}>
+                  <ScanPage />
+                </React.Suspense>
               </DashboardLayout>
             }
           />
