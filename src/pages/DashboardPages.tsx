@@ -290,9 +290,8 @@ export const DashboardHome: React.FC = () => {
             return (
               <div key={i} className="flex-1 flex flex-col items-center h-full justify-end group relative" title={`${bucket.dateStr}: ${bucket.count} visite(s)`}>
                 <div
-                  className={`w-full rounded-t transition-all ${
-                    bucket.count > 0 ? 'bg-coral shadow-sm' : 'bg-ink/[0.06]'
-                  }`}
+                  className={`w-full rounded-t transition-all ${bucket.count > 0 ? 'bg-coral shadow-sm' : 'bg-ink/[0.06]'
+                    }`}
                   style={{ height: `${heightPct}%` }}
                 />
               </div>
@@ -314,9 +313,8 @@ export const DashboardHome: React.FC = () => {
         >
           <span>Plus de détails</span>
           <ChevronDown
-            className={`h-4 w-4 text-ink/40 transition-transform ${
-              moreDetailsOpen ? 'rotate-180' : ''
-            }`}
+            className={`h-4 w-4 text-ink/40 transition-transform ${moreDetailsOpen ? 'rotate-180' : ''
+              }`}
           />
         </button>
         {moreDetailsOpen && (
@@ -406,22 +404,20 @@ export const CustomersPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('list')}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
-              activeTab === 'list'
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === 'list'
                 ? 'bg-coral text-white shadow-sm'
                 : 'text-ink/60 hover:text-ink'
-            }`}
+              }`}
           >
             Mes clients ({customers.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('import')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
-              activeTab === 'import'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === 'import'
                 ? 'bg-coral text-white shadow-sm'
                 : 'text-ink/60 hover:text-ink'
-            }`}
+              }`}
           >
             <Upload className="h-3 w-3" />
             Importer
@@ -514,10 +510,10 @@ export const CustomersPage: React.FC = () => {
                     const firstName = (c.name || 'Client').split(' ')[0];
                     const lastVisitStr = c.lastVisit
                       ? new Date(c.lastVisit).toLocaleDateString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                        })
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })
                       : 'Premier passage';
 
                     return (
@@ -622,11 +618,10 @@ export const RewardsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('rewards')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
-              activeTab === 'rewards'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === 'rewards'
                 ? 'bg-coral text-white shadow-sm'
                 : 'text-ink/60 hover:text-ink'
-            }`}
+              }`}
           >
             <Gift className="h-3.5 w-3.5" />
             Récompenses ({rewards.length})
@@ -634,11 +629,10 @@ export const RewardsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('rules')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${
-              activeTab === 'rules'
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all ${activeTab === 'rules'
                 ? 'bg-coral text-white shadow-sm'
                 : 'text-ink/60 hover:text-ink'
-            }`}
+              }`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Règles & Barème
@@ -683,13 +677,12 @@ export const RewardsPage: React.FC = () => {
                     setCurrency('MAD');
                     setSavedToast(false);
                   }}
-                  className={`rounded-xl border px-3.5 py-2.5 text-center text-xs font-bold transition-all ${
-                    currency === 'MAD'
+                  className={`rounded-xl border px-3.5 py-2.5 text-center text-xs font-bold transition-all ${currency === 'MAD'
                       ? 'border-coral bg-coral/[0.06] text-coral shadow-sm'
                       : 'border-ink/10 bg-white text-ink/70 hover:bg-ink/[0.02]'
-                  }`}
+                    }`}
                 >
-                  MAD (Dirham marocain)
+                  DZD (Dinar algerien)
                 </button>
                 <button
                   type="button"
@@ -697,11 +690,10 @@ export const RewardsPage: React.FC = () => {
                     setCurrency('EUR');
                     setSavedToast(false);
                   }}
-                  className={`rounded-xl border px-3.5 py-2.5 text-center text-xs font-bold transition-all ${
-                    currency === 'EUR'
+                  className={`rounded-xl border px-3.5 py-2.5 text-center text-xs font-bold transition-all ${currency === 'EUR'
                       ? 'border-coral bg-coral/[0.06] text-coral shadow-sm'
                       : 'border-ink/10 bg-white text-ink/70 hover:bg-ink/[0.02]'
-                  }`}
+                    }`}
                 >
                   EUR (Euro €)
                 </button>
@@ -725,11 +717,10 @@ export const RewardsPage: React.FC = () => {
                       setStampsPerCard(n);
                       setSavedToast(false);
                     }}
-                    className={`h-10 w-10 rounded-xl font-impact text-base transition-all ${
-                      stampsPerCard === n
+                    className={`h-10 w-10 rounded-xl font-impact text-base transition-all ${stampsPerCard === n
                         ? 'bg-coral text-white shadow-hard-coral scale-105'
                         : 'bg-ink/[0.04] text-ink hover:bg-ink/[0.08]'
-                    }`}
+                      }`}
                   >
                     {n}
                   </button>
@@ -748,11 +739,10 @@ export const RewardsPage: React.FC = () => {
                     return (
                       <div
                         key={idx}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                          filled
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${filled
                             ? 'bg-coral text-white shadow-sm'
                             : 'border-2 border-white/20 text-white/30 bg-white/[0.02]'
-                        }`}
+                          }`}
                       >
                         {filled ? '★' : idx + 1}
                       </div>
@@ -1003,11 +993,10 @@ export const RewardsPage: React.FC = () => {
                       return (
                         <div
                           key={idx}
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                            collected
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${collected
                               ? 'bg-coral text-white shadow-md'
                               : 'border border-white/15 text-white/20'
-                          }`}
+                            }`}
                         >
                           {collected ? '✓' : idx + 1}
                         </div>
@@ -1353,11 +1342,10 @@ export const BrandingPage: React.FC = () => {
                 return (
                   <div
                     key={idx}
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
-                      filled
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${filled
                         ? 'bg-white text-ink font-bold shadow-sm'
                         : 'border border-white/20 text-white/30'
-                    }`}
+                      }`}
                   >
                     {filled ? <SelectedStampIcon className="h-3 w-3 text-ink" /> : ''}
                   </div>
@@ -1468,11 +1456,10 @@ export const BrandingPage: React.FC = () => {
                       key={t.label}
                       type="button"
                       onClick={() => setEstType(t.label)}
-                      className={`flex flex-col items-center justify-center gap-1 rounded-xl border py-2.5 px-2 text-[11px] font-semibold transition-all ${
-                        active
+                      className={`flex flex-col items-center justify-center gap-1 rounded-xl border py-2.5 px-2 text-[11px] font-semibold transition-all ${active
                           ? 'border-coral bg-coral/[0.05] text-coral'
                           : 'border-ink/[0.07] bg-white text-ink/70 hover:bg-ink/[0.02]'
-                      }`}
+                        }`}
                     >
                       <Icon className="h-4 w-4" />
                       <span>{t.label}</span>
@@ -1495,9 +1482,8 @@ export const BrandingPage: React.FC = () => {
                   type="button"
                   onClick={() => updateCommerce({ cardBgColor: hex })}
                   style={{ backgroundColor: hex }}
-                  className={`h-8 w-8 rounded-full transition-transform ${
-                    commerce.cardBgColor === hex ? 'ring-2 ring-offset-2 ring-ink scale-110' : ''
-                  }`}
+                  className={`h-8 w-8 rounded-full transition-transform ${commerce.cardBgColor === hex ? 'ring-2 ring-offset-2 ring-ink scale-110' : ''
+                    }`}
                 />
               ))}
               <div className="flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-3 py-1.5">
@@ -1524,11 +1510,10 @@ export const BrandingPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTopMode('tampons')}
-                className={`rounded-xl border p-3.5 text-left transition-all ${
-                  topMode === 'tampons'
+                className={`rounded-xl border p-3.5 text-left transition-all ${topMode === 'tampons'
                     ? 'border-coral bg-coral/[0.04]'
                     : 'border-ink/10 bg-white'
-                }`}
+                  }`}
               >
                 <p className="text-xs font-bold text-ink">Les tampons</p>
                 <p className="mt-0.5 text-[11px] text-ink/50">
@@ -1538,11 +1523,10 @@ export const BrandingPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTopMode('photo')}
-                className={`rounded-xl border p-3.5 text-left transition-all ${
-                  topMode === 'photo'
+                className={`rounded-xl border p-3.5 text-left transition-all ${topMode === 'photo'
                     ? 'border-coral bg-coral/[0.04]'
                     : 'border-ink/10 bg-white'
-                }`}
+                  }`}
               >
                 <p className="text-xs font-bold text-ink">Votre photo</p>
                 <p className="mt-0.5 text-[11px] text-ink/50">
@@ -1592,11 +1576,10 @@ export const BrandingPage: React.FC = () => {
                   key={n}
                   type="button"
                   onClick={() => setStampsCount(n)}
-                  className={`h-9 w-9 rounded-xl font-impact text-sm transition-all ${
-                    stampsCount === n
+                  className={`h-9 w-9 rounded-xl font-impact text-sm transition-all ${stampsCount === n
                       ? 'bg-coral text-white shadow-hard-coral'
                       : 'bg-white border border-ink/10 text-ink'
-                  }`}
+                    }`}
                 >
                   {n}
                 </button>
@@ -1621,11 +1604,10 @@ export const BrandingPage: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => setStampIconIdx(idx)}
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
-                      stampIconIdx === idx
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${stampIconIdx === idx
                         ? 'border-coral bg-coral/[0.08] text-coral'
                         : 'border-ink/10 bg-white text-ink/60 hover:text-ink'
-                    }`}
+                      }`}
                   >
                     <IconComp className="h-3.5 w-3.5" />
                   </button>
@@ -1682,16 +1664,16 @@ const ThumbsUpIcon: React.FC<{ className?: string }> = ({ className }) => (
    ============================================================================ */
 export const ExtraDashboardPages: React.FC<{
   section:
-    | 'reviews'
-    | 'qrcode'
-    | 'caisses'
-    | 'pdv'
-    | 'api'
-    | 'settings'
-    | 'billing'
-    | 'donnees-clients'
-    | 'conseiller'
-    | 'admin';
+  | 'reviews'
+  | 'qrcode'
+  | 'caisses'
+  | 'pdv'
+  | 'api'
+  | 'settings'
+  | 'billing'
+  | 'donnees-clients'
+  | 'conseiller'
+  | 'admin';
 }> = ({ section }) => {
   const { commerce, commerces, selectCommerce, employees, addEmployee, customers, updateCommerce, logout } =
     useStore();
@@ -1880,7 +1862,7 @@ export const ExtraDashboardPages: React.FC<{
         addEmployee(name, commerce.name, pin);
         void fetchTeam();
       }
-    } catch {}
+    } catch { }
   };
 
   const handleDeleteTeamMember = async (id: string) => {
@@ -1891,7 +1873,7 @@ export const ExtraDashboardPages: React.FC<{
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       void fetchTeam();
-    } catch {}
+    } catch { }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -1999,13 +1981,12 @@ export const ExtraDashboardPages: React.FC<{
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          claim.status === 'APPROVED'
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${claim.status === 'APPROVED'
                             ? 'bg-emerald-100 text-emerald-800'
                             : claim.status === 'REJECTED'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
                       >
                         {claim.status === 'APPROVED' ? 'Validé' : claim.status === 'REJECTED' ? 'Refusé' : 'En attente'}
                       </span>
@@ -2203,11 +2184,10 @@ export const ExtraDashboardPages: React.FC<{
                   key={p.k}
                   type="button"
                   onClick={() => setTeamPeriod(p.k)}
-                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-colors ${
-                    teamPeriod === p.k
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-colors ${teamPeriod === p.k
                       ? 'bg-ink text-white'
                       : 'bg-ink/[0.04] text-ink/60 hover:text-ink'
-                  }`}
+                    }`}
                 >
                   {p.k === 'jour' && <Calendar className="h-2.5 w-2.5" />}
                   {p.l}
@@ -2444,11 +2424,10 @@ export const ExtraDashboardPages: React.FC<{
             <button
               type="button"
               onClick={() => setCanEmailClients('oui')}
-              className={`rounded-xl border p-3.5 text-left transition-all ${
-                canEmailClients === 'oui'
+              className={`rounded-xl border p-3.5 text-left transition-all ${canEmailClients === 'oui'
                   ? 'border-coral bg-coral/[0.04]'
                   : 'border-ink/10 bg-white'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
                 <Mail className="h-3.5 w-3.5" />
@@ -2462,11 +2441,10 @@ export const ExtraDashboardPages: React.FC<{
             <button
               type="button"
               onClick={() => setCanEmailClients('non')}
-              className={`rounded-xl border p-3.5 text-left transition-all ${
-                canEmailClients === 'non'
+              className={`rounded-xl border p-3.5 text-left transition-all ${canEmailClients === 'non'
                   ? 'border-coral bg-coral/[0.04]'
                   : 'border-ink/10 bg-white'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
                 <Mail className="h-3.5 w-3.5" />
@@ -2489,11 +2467,10 @@ export const ExtraDashboardPages: React.FC<{
             <button
               type="button"
               onClick={() => setBirthDateRule('facultative')}
-              className={`rounded-xl border p-3.5 text-left transition-all ${
-                birthDateRule === 'facultative'
+              className={`rounded-xl border p-3.5 text-left transition-all ${birthDateRule === 'facultative'
                   ? 'border-coral bg-coral/[0.04]'
                   : 'border-ink/10 bg-white'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
                 <Calendar className="h-3.5 w-3.5" />
@@ -2508,11 +2485,10 @@ export const ExtraDashboardPages: React.FC<{
             <button
               type="button"
               onClick={() => setBirthDateRule('obligatoire')}
-              className={`rounded-xl border p-3.5 text-left transition-all ${
-                birthDateRule === 'obligatoire'
+              className={`rounded-xl border p-3.5 text-left transition-all ${birthDateRule === 'obligatoire'
                   ? 'border-coral bg-coral/[0.04]'
                   : 'border-ink/10 bg-white'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
                 <Cake className="h-3.5 w-3.5" />
@@ -2589,9 +2565,8 @@ export const ExtraDashboardPages: React.FC<{
                 key={c.k}
                 type="button"
                 onClick={() => setRythme(c.k)}
-                className={`flex-1 rounded-lg py-2 text-[11px] font-bold transition-all ${
-                  rythme === c.k ? 'bg-white text-ink shadow-sm' : 'text-ink/55'
-                }`}
+                className={`flex-1 rounded-lg py-2 text-[11px] font-bold transition-all ${rythme === c.k ? 'bg-white text-ink shadow-sm' : 'text-ink/55'
+                  }`}
               >
                 {c.l} {c.o && <span className="text-coral">{c.o}</span>}
               </button>
@@ -2708,9 +2683,8 @@ export const ExtraDashboardPages: React.FC<{
                   key={pk.title}
                   type="button"
                   onClick={() => setEmailPack(pk.cost)}
-                  className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all ${
-                    active ? 'border-coral bg-coral/[0.03]' : 'border-ink/10 bg-white'
-                  }`}
+                  className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all ${active ? 'border-coral bg-coral/[0.03]' : 'border-ink/10 bg-white'
+                    }`}
                 >
                   <div>
                     <p className="text-xs font-bold text-ink">{pk.title}</p>
@@ -3083,11 +3057,10 @@ export const ExtraDashboardPages: React.FC<{
 
         {passwordNotice && (
           <div
-            className={`rounded-xl p-2.5 text-xs font-semibold ${
-              passwordNotice.type === 'ok'
+            className={`rounded-xl p-2.5 text-xs font-semibold ${passwordNotice.type === 'ok'
                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : 'bg-red-50 text-red-700 border border-red-200'
-            }`}
+              }`}
           >
             {passwordNotice.text}
           </div>
