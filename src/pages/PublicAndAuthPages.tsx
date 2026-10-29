@@ -88,12 +88,32 @@ export const CustomerCardPublicPage: React.FC = () => {
     };
   }, [slug]);
 
-  // 2. Real-time live polling: updates customer points/stamps on screen automatically when cashier scans
+  const [notifPermission, setNotifPermission] = useState<string>(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission;
+    }
+    return 'default';
+  });
+
+  const requestNotifPermission = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      const p = await Notification.requestPermission();
+      setNotifPermission(p);
+      if (p === 'granted') {
+        new Notification(shop.name, {
+          body: '🎉 Notifications activées ! Vous recevrez nos offres et récompenses en direct.',
+          icon: shop.cardLogoImage || '/brand/logo-mark.png',
+        });
+      }
+    }
+  };
+
+  // 2. Real-time live polling: updates customer points/stamps and notifications
   useEffect(() => {
-    if (!activeCustomer?.code) return;
     let isSubscribed = true;
 
     const checkLiveBalance = async () => {
+      if (!activeCustomer?.code) return;
       try {
         const res = await fetch(`/api/customers/${encodeURIComponent(activeCustomer.code)}`);
         const json = await res.json();
@@ -109,15 +129,48 @@ export const CustomerCardPublicPage: React.FC = () => {
       }
     };
 
-    // Immediate check + repeat every 2.5s
+    const checkLiveNotifs = async () => {
+      if (!shop?.id) return;
+      try {
+        const nr = await fetch(`/api/notifications?merchantId=${encodeURIComponent(shop.id)}`);
+        const njson = await nr.json();
+        if (isSubscribed && njson.ok && Array.isArray(njson.notifications) && njson.notifications.length > 0) {
+          const first = njson.notifications[0];
+          setLatestNotif((prev) => {
+            if (!prev || prev.title !== first.title || prev.message !== first.message) {
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification(first.title, {
+                  body: first.message || first.title,
+                  icon: shop.cardLogoImage || '/brand/logo-mark.png',
+                });
+              }
+              return {
+                title: first.title,
+                message: first.message,
+                targetUrl: first.target_url,
+              };
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // silent
+      }
+    };
+
+    // Immediate check + repeat every 3s
     void checkLiveBalance();
-    const interval = setInterval(checkLiveBalance, 2500);
+    void checkLiveNotifs();
+    const interval = setInterval(() => {
+      void checkLiveBalance();
+      void checkLiveNotifs();
+    }, 3000);
 
     return () => {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [activeCustomer?.code, activeCustomer?.points, activeCustomer?.visits, storageKey]);
+  }, [activeCustomer?.code, activeCustomer?.points, activeCustomer?.visits, shop?.id, storageKey]);
 
   const currentPoints = activeCustomer?.points ?? 0;
   const sortedRewards = [...activeRewards].sort((a, b) => a.cost - b.cost);
@@ -326,6 +379,17 @@ export const CustomerCardPublicPage: React.FC = () => {
                 Google Wallet
               </button>
             </div>
+
+            {notifPermission !== 'granted' && (
+              <button
+                type="button"
+                onClick={requestNotifPermission}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-coral/30 bg-coral/10 py-3 px-4 text-xs font-bold text-coral hover:bg-coral/20 transition-all shadow-sm"
+              >
+                <Bell className="w-4 h-4" />
+                Activer les notifications push sur cet appareil
+              </button>
+            )}
 
             <div className="rounded-3xl border border-ink/10 bg-white p-5 shadow-soft space-y-3">
               <div className="flex items-center justify-between">
